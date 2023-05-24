@@ -4,12 +4,14 @@
 
 #kelsey's code and data are here: https://data.mendeley.com/datasets/4hczg93xkp/2/files/458214a3-f6b5-4ac3-81a8-0c3f460d2b0e
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/Etho") #set working directory in the biometry folder on my computer)
+setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/Etho") #set working directory
 etho=read.table("EthoData.csv",header=TRUE, sep=",")
 
-setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/2023_Etho,Embryo,Spinning") #set working directory in the biometry folder on my computer)
+setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/2023_Etho,Embryo,Spinning/Personality_BMAA") #set working directory
 etho=read.table("pca_cutethodata.csv",header=TRUE, sep=",")
 etho=read.table("pca_supercutethodata.csv",header=TRUE, sep=",")
+
+#REMINDER TO REMOVE THE 'TEST' FISH BEFORE ANALYZING
 
 #FOR CUT ETHO DATA ONLY--change the indv tested on day 15 to day 14
 for(i in 1:nrow(etho)){
@@ -49,6 +51,7 @@ for(i in unique(etho$Age)){
   pca_i$x <- -1*pca_i$x
   biplot(pca_i, scale=0, main=i)
 }
+
 cor(etho)
 cor.test(etho$CumDurZ1, etho$LatencyZ1)
 
