@@ -3,15 +3,22 @@
 #started in 2019, reworked and completed 2023
 
 #kelsey's code and data are here: https://data.mendeley.com/datasets/4hczg93xkp/2/files/458214a3-f6b5-4ac3-81a8-0c3f460d2b0e
+
+#note: Changes in Raw EthoData from 2019
+  #typo for Eric, age 21, paterinty said 31 when should be 314
+  #removed FishA, FishB, FishC, FishD, FishE, FishF -- these were test fish and the methods were not 100% solid at the time
+  #typo for clutch 3-18G treatment at age 14, said 25 treatment when should be 5 (ID: Gumby, Harriet, IceCube, Manta, Newberry, Ollie, PInkie, Quan, Rally)
+  #typo for Isomer, age 161, clutch said 5-5A but should be 5-3A
+
+#WILL NEED TO REMOVE: look into fish with * by their names!
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/Etho") #set working directory
-etho=read.table("EthoData.csv",header=TRUE, sep=",")
+setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/2023_Etho,Embryo,Spinning/Personality_BMAA") #set working directory
+etho=read.table("EthoData_updated.csv",header=TRUE, sep=",")  #see changes in "updated" dataset above
 
 setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/2023_Etho,Embryo,Spinning/Personality_BMAA") #set working directory
 etho=read.table("pca_cutethodata.csv",header=TRUE, sep=",")
 etho=read.table("pca_supercutethodata.csv",header=TRUE, sep=",")
-
-#REMINDER TO REMOVE THE 'TEST' FISH BEFORE ANALYZING
+str(etho)
 
 #FOR CUT ETHO DATA ONLY--change the indv tested on day 15 to day 14
 for(i in 1:nrow(etho)){
@@ -20,11 +27,57 @@ for(i in 1:nrow(etho)){
   }
 } #age = as.numeric(etho[,3])  
 
-###PCA ANALYSIS
+
+####Step 1: Check correlations among variables
+C <- cor(etho) #gives correl table - look for those > 0.5
+cor.test(etho$CumDurZ2, etho$CumDur.Z2)
+cor.test(etho$LatencyZ2, etho$LatencyZ2360)
+cor.test(etho$MeanMeander, etho$TotMeander)
+cor.test(etho$Mean.Activ, etho$Tot.Act)
+cor.test(etho$Mean.Activ, etho$MeanMeander)
+cor.test(etho$MeanVel, etho$MeanAngVel)  #strangely, these are not related
+
+library(corrplot)
+corrplot(C, method = "number")
+
+#grab variables of interest
+age <- etho$Age   #highly related to arena size
+pat <- etho$Paternity
+treat <- etho$Treatment
+dist <- etho$TotDist
+dur <- etho$CumDur.Z2   #CumDur.Z2 is the PROPORTION, CumDurZ2 is the numeric across 360 seconds. note one or two not exact matches?
+lat <- etho$LatencyZ2360   #contains '-' when never entered Z2. consider if this should be NA or max assay time (360 sec)
+mea <- etho$MeanMeander  #not sure what this really is lol ; #note, has pos and neg values
+angv <- etho$MeanAngVel  #note, has pos and neg values
+frq <- etho$FreqZAlter
+actv <- etho$Mean.Activ
+
+data = matrix(nrow=nrow(etho), ncol=8)
+data <- cbind(age, pat, treat, dist, dur, lat, mea, angv)  #frq, actv
+D <- cor(data)
+corrplot(D, method = "number")
+  #age, distance, activity, and freq zone alteration all related -- choose ONE
+
+##Suggested Variables
+ #Dependent Var
+  #Latency,  etho$LatencyZ2               (boldness)
+  #Angular Velocity,  etho$MeanAngVel     (exploration)     +/- values
+  #Total Distance,  etho$TotDist          (activity)
+  #Duration in Center,  etho$CumDur.Z2    (boldness) -- RELATES MORE TO exploration variables in PCA
+  #Mean Meander,  etho$MeanMeander        (exploration)     +/- values
+ #Independent Var
+  #Treatment
+ #Covariates/Random Variables
+  #Age
+  #Paternity/Clutch
+  #ID
+
+
+###Step 2: PCA ANALYSIS
 #https://www.statology.org/principal-components-analysis-in-r/
 
 #calc principal components
-pca <- prcomp(etho, scale=TRUE)
+pca <- prcomp(data, scale=TRUE)  #use etho for all variables
 
 #need to reverse the signs
 pca$rotation <- -1*pca$rotation
@@ -52,8 +105,45 @@ for(i in unique(etho$Age)){
   biplot(pca_i, scale=0, main=i)
 }
 
-cor(etho)
-cor.test(etho$CumDurZ1, etho$LatencyZ1)
+#Step 3: Find relatedness among treatments
+for(p in unique(etho$Treatment)){
+  temp = etho[etho$Treatment == p,,drop=FALSE]
+  print(paste("treatment",p))
+  print(paste(unique(temp$Paternity)))
+  print(paste(unique(temp$Clutch)))
+}
+for(f in unique(etho$Paternity)){
+  hold = etho[etho$Paternity == f,,drop=FALSE]
+  print(paste(unique(hold$Clutch), unique(hold$Treatment)))
+}
+
+#Father 318 in ALL 3 treatments
+#Father 31&33 in 0 and 5
+#Father 51&55 in 0 and 25
+#Father 313&37 in 5 and 25
+
+#0 has 2 clutches with Father 316 (3-16A & 3-16B) and 2 clutches with Father 318 (3-18A & 3-18I) and 2 clutches with Father 47 (4-7A & 4-7B) and 2 clutches with Father 53 (5-3A & 5-3B).
+#5 has 2 clutches with Father 39 (3-9A & 3-9B) and 2 clutches with Father 318 (3-18E & 3-18G)
+#25 has 2 clutches with Father 37 (3-7B & 3-7F) and 3 clutches with Father 318 (3-18C & 3-18F)
+
+
+###Step 4: Spaghetti Plots
+library(CorrMixed)
+Spaghetti.Plot(Dataset=etho, Outcome=TotDist, Id=FishName, Time=Age,
+               xlim=c(0,190),ylim=c(0,max(etho$TotDist)))
+
+Spaghetti.Plot(Dataset=etho, Outcome=LatencyZ2360, Id=FishName, Time=Age,
+               xlim=c(0,190),ylim=c(0,360))
+
+Spaghetti.Plot(Dataset=etho, Outcome=MeanAngVel, Id=FishName, Time=Age,
+               xlim=c(0,190),ylim=c(0,max(etho$MeanAngVel)))
+
+Spaghetti.Plot(Dataset=etho, Outcome=CumDur.Z2, Id=FishName, Time=Age,
+               xlim=c(0,190),ylim=c(0,100))
+
+Spaghetti.Plot(Dataset=etho, Outcome=MeanMeander, Id=FishName, Time=Age,
+               Col = gt.cols[etho$Treatment], xlim=c(0,190),ylim=c(min(etho$MeanMeander),max(etho$MeanMeander)))
+
 
 ####Survival Model
 #https://rpkgs.datanovia.com/survminer/reference/ggsurvplot.html
