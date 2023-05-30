@@ -63,11 +63,8 @@ var = data.frame(pca$sdev^2/sum(pca$sdev^2))
 #do PCAs for each age
 #keep track of variance for each PC at each age with dataframe
 #Age categories: 21  49  77  14 105  133 161 189
-for(i in 1:nrow(etho)){
-  if(etho[i,1]==15){
-    etho[i,1]=14
-  }
-} 
+etho$Age[which(etho$Age == 15)]<-14
+
 for(i in unique(etho$Age)){
   temp = etho[etho$Age==i,]
   temp$MeanTimeZ2 = as.numeric(temp$MeanTimeZ2)
