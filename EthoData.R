@@ -73,6 +73,30 @@ corrplot(D, method = "number")
   #ID
 
 
+#Meander - the change in direction of movement of a subject relative to the distance moved by the subject. 
+  #Gives an indiciation on how convoluted the subject's trajectory is.
+  #relative meander - change in direction is signed (clockwise = negative, counterclockwise = positive); RM = relative turn angle/distance moved
+  #absolute meander - change is unsigned. AKA absolute value of relative meander ; AM = |relative turn angle/distance moved|
+#NOTE - when distance moved is very small (young ages), meander can have high, unrealistic values
+
+#Angular Velocity - relative turn angle / time difference ; degrees per second; can be + or - 
+  #measures the speed of change in direction of movement - used to assess turn bias or circular tendency and abnormalities of behavior
+  #NOTE - turn angle is sensitive to small movements of body points. if distance moved is very small, turn angle can get high, unrealistic values (additionally, consecutive turns can have high values)
+  #to combat this ^^, let's scale distance moved
+
+#Activity - percentage of changed pixels in *entire arena* between current and previous sample (independent of the subject)
+  #actv = n changed pixels / total n pixels * 100 ; [if all pixels are same, no activity]
+  #if animal is moving and increases in velocity, activity/mobility will increase, cuz pixels are increasingly different as it moves faster
+  #mean activity averages across number of samples (i.e., time)
+#Mobility - percentage of pixel change between current sample and previous sample *detected in the subject only* ; ranges from 0 - 100%
+#NOTE - activity depends on size of subject relative to arena, therefore, if animal is small in arena, activity will be small
+#NOTE - mobility depends on size of subject only, not on arena size. small fish results in small number of pixels that change, tehrefore small movements reulst in high change
+#used to detect activity
+
+#Cumulative duration in Z2 was activated only once crossed the threshold of Z2; smae with freq zone alteration
+
+
+
 ###Step 2: PCA ANALYSIS
 #https://www.statology.org/principal-components-analysis-in-r/
 
