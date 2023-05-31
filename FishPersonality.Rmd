@@ -1,0 +1,127 @@
+---
+title: "Gina's fish personality"
+output: pdf_document
+date: "2023-05-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background information
+
+This project evaluates the effect of BMAA (a cyanotoxin) on fathead minnow behavior. Young fish were grouped in 3 treatment conditions: control (no BMAA exposure), T25 (low BMAA exposure) and T125 (moderate BMAA exposure). Behavioral responses to an open-field test were then recorded at 8 time points across development. Ethovision was used to record behavior during the open-field test and resulted in many different variables that could represent different aspects of personality. Additionally, embryos were test once for burst activity.
+
+Our main questions with these data are:
+1. Are the behaviors recorded during the open field test reflective of underlying personality traits? To test this we will evaluate the repeatability of each behavior across the 8 time points.
+2. How does BMAA exposure affect behavior in the open field test? To test this we will compare performance among treatment groups.
+
+
+## Methods
+
+We first need to determine the relationships among the variables recorded by Ethovision.
+
+```{r variables}
+etho = read.csv(url("https://raw.githubusercontent.com/ginalamka/Personality_BMAA/main/EthoData_RAW.csv?token=GHSAT0AAAAAACB372QAVIFQUKNL2AAXGR3EZDPWBAA"), header=T, sep=",", stringsAsFactors=F)
+
+##How correlated are the variables?
+#Create dataframe with just numeric/integer values
+etho.corr = etho[,-c(1:7)]
+etho.corr$MeanTimeZ2 = as.numeric(etho.corr$MeanTimeZ2)
+etho.corr$LatencyZ2 = as.numeric(etho.corr$LatencyZ2)
+etho.corr=etho.corr[-which(is.na(etho.corr$MeanTimeZ2)),] #There are some missing data that may need to be changed to ceiling values? For now, we will ignore those.
+
+
+library(Hmisc)
+library(corrplot)
+#Dataframe should be a matrix. 
+cor = rcorr(as.matrix(etho.corr))
+corrplot(cor$r,type = "upper",p.mat=cor$P, sig.level=0.05, insig = "blank",diag=F) #lots of variables correlated to differing degrees
+
+
+
+
+##Do correlated variables load on PCs to suggest personality axes?
+#calc principal components
+pca <- prcomp(etho.corr, scale=TRUE)
+
+#need to reverse the signs
+pca$rotation <- -1*pca$rotation
+
+#calc total variance explained by each princ component
+pca$sdev^2/sum(pca$sdev^2) # first 5 PCs account for 72ish % of variance in data
+
+#display principal components
+loadings = data.frame(pca$rotation[1:25,1:5]) #all 25 variables, first 5 PCs
+loadings = loadings[order(-abs(loadings$PC1), -abs(loadings$PC2), -abs(loadings$PC3), -abs(loadings$PC4), -abs(loadings$PC5)),]
+
+#create biplot to visualize
+biplot(pca$x[, 1:2], pca$rotation[, 1:2], cex=1)
+
+```
+
+## Interpreting the loadings (From http://strata.uga.edu/8370/lecturenotes/principalComponents.html): 
+Because the sum of the squares of all loadings for an individual principal component must sum to one, we can calculate what the loadings would be if all variables contributed equally to that principal component. Any variable that has a larger loading than this value contributes more than one variable’s worth of information and would be regarded as an important contributor to that principal component.
+
+We have 25 variables, the square root of the value if each variable contributed equally (1/25) is 0.2. So, variable loadings that are greater than 0.2 contribute a larger than expected amount to the PC.
+
+# PC1 
+The following variables have large, negative loadings: MeanVel, TotDist, FreqTransZ2.Z1, Mean.Activ, Tot.Act, FreqTransZ1.Z2, Mean.Mobility, FreqZ2.
+The following variables have large, positive loadings (and so have an opposite effect of PC1): VarTurnAngle, LatencyZ2, LatencyZ2360.
+
+# PC2
+Large, negative loadings: CumDur.Z1, CumDurZ1
+Large, positive loadings: CumDur.Z2, CumDurZ2, MeanTimeZ2, MeanTimeZ2Zero, FreqZ2
+
+
+```{r variables by age}
+#### Do PCAs for each age
+#keep track of variance and loadings for each PC at each age with data frame
+#Age categories: 21  49  77  14 105  133 161 189
+etho$Age[which(etho$Age == 15)]<-14
+
+for(i in unique(etho$Age)){
+  temp = etho[etho$Age==i,]
+  temp$MeanTimeZ2 = as.numeric(temp$MeanTimeZ2)
+  temp$LatencyZ2 = as.numeric(temp$LatencyZ2)
+  temp=temp[-which(is.na(temp$MeanTimeZ2)),]
+  pca_i <- prcomp(temp[,8:32], scale=TRUE)
+  pca_i$rotation <- -1*pca_i$rotation
+  var = data.frame(pca_i$sdev^2/sum(pca_i$sdev^2))
+  rot = data.frame(pca_i$rotation[1:25,1])
+  colnames(var) = i
+  colnames(rot) = i
+  if(i==21){
+    vars = var
+    rots = rot
+  } else{
+    vars = cbind(vars, var)
+    rots = cbind(rots, rot)
+  }
+}
+#Range of variance accounted for by PC1 is 25-31%
+#Range of PC2 is 16-25%
+vars$PC = row.names(vars)
+scree.plot = gather(vars, age, value, "21":"189",factor_key =F)
+ggplot(scree.plot, aes(x = as.numeric(PC), y = (value)*100, color = as.factor(age))) + 
+  theme_bw() +
+  geom_line() +
+  geom_hline(yintercept=4) #the amount of variance each variable would contribute if all contributed the same amount: 1/25*100
+
+
+###do PC loadings stay the same across ages? Spaghetti plot:
+library(tidyr)
+library(ggplot2)
+rots$variables = row.names(rots)
+plot.data = gather(rots, age, value, "21":"189", factor_key = F)
+ggplot(plot.data, aes(x = as.numeric(age), y = abs(value), color = variables)) +
+  geom_line() +
+  theme_bw()
+
+
+
+
+
+
+```
+
