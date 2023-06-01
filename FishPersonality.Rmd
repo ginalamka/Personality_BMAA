@@ -65,7 +65,7 @@ Because the sum of the squares of all loadings for an individual principal compo
 
 We have 25 variables, the square root of the value if each variable contributed equally (1/25) is 0.2. So, variable loadings that are greater than 0.2 contribute a larger than expected amount to the PC.
 
-# PC1 
+# PC1 - fast vs slow-exploring
 The following variables have large, negative loadings: MeanVel, TotDist, FreqTransZ2.Z1, Mean.Activ, Tot.Act, FreqTransZ1.Z2, Mean.Mobility, FreqZ2.
 The following variables have large, positive loadings (and so have an opposite effect of PC1): VarTurnAngle, LatencyZ2, LatencyZ2360.
 
