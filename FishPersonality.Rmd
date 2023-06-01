@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Background information
 
-This project evaluates the effect of BMAA (a cyanotoxin) on fathead minnow behavior. Young fish were grouped in 3 treatment conditions: control (no BMAA exposure), T25 (low BMAA exposure) and T125 (moderate BMAA exposure). Behavioral responses to an open-field test were then recorded at 8 time points across development. Ethovision was used to record behavior during the open-field test and resulted in many different variables that could represent different aspects of personality. Additionally, embryos were test once for burst activity.
+This project evaluates the effect of BMAA (a cyanotoxin) on fathead minnow behavior. Young fish were grouped in 3 treatment conditions: control (no BMAA exposure), T5 (low BMAA exposure) and T25 (moderate BMAA exposure). Behavioral responses to an open-field test were then recorded at 8 time points across development. Ethovision was used to record behavior during the open-field test and resulted in many different variables that could represent different aspects of personality. Additionally, embryos were test once for burst activity.
 
 Our main questions with these data are:
 1. Are the behaviors recorded during the open field test reflective of underlying personality traits? To test this we will evaluate the repeatability of each behavior across the 8 time points.

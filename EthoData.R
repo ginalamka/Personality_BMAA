@@ -11,6 +11,7 @@
   #typo for Isomer, age 161, clutch said 5-5A but should be 5-3A
 
 #WILL NEED TO REMOVE: look into fish with * by their names!
+#QC - check into Lupin, MantisShrimp, Nikki
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/2023_Etho,Embryo,Spinning/Personality_BMAA") #set working directory
 etho=read.table("EthoData_updated.csv",header=TRUE, sep=",")  #see changes in "updated" dataset above
@@ -29,6 +30,7 @@ for(i in 1:nrow(etho)){
 
 
 ####Step 1: Check correlations among variables
+{
 C <- cor(etho) #gives correl table - look for those > 0.5
 cor.test(etho$CumDurZ2, etho$CumDur.Z2)
 cor.test(etho$LatencyZ2, etho$LatencyZ2360)
@@ -50,55 +52,62 @@ lat <- etho$LatencyZ2360   #contains '-' when never entered Z2. consider if this
 mea <- etho$MeanMeander  #not sure what this really is lol ; #note, has pos and neg values
 angv <- etho$MeanAngVel  #note, has pos and neg values
 frq <- etho$FreqZAlter
-actv <- etho$Mean.Activ
+actv <- etho$Mean.Mobility
 
 data = matrix(nrow=nrow(etho), ncol=8)
-data <- cbind(age, pat, treat, dist, dur, lat, mea, angv)  #frq, actv
+data <- cbind(age, pat, treat, dist, dur, lat, mea, angv, actv)  #frq, actv
 D <- cor(data)
 corrplot(D, method = "number")
   #age, distance, activity, and freq zone alteration all related -- choose ONE
-
+}
 ##Suggested Variables
  #Dependent Var
-  #Latency,  etho$LatencyZ2               (boldness)
-  #Angular Velocity,  etho$MeanAngVel     (exploration)     +/- values
-  #Total Distance,  etho$TotDist          (activity)
-  #Duration in Center,  etho$CumDur.Z2    (boldness) -- RELATES MORE TO exploration variables in PCA
-  #Mean Meander,  etho$MeanMeander        (exploration)     +/- values
+  #Mean Mobility     = Activity
+  #CumDur.Z2         = Boldness
+  #MeanAngVel        = Exploration  (+/- values)
  #Independent Var
   #Treatment
- #Covariates/Random Variables
-  #Age
+ #Covariates
+  #Age - general changes over time; longitudinal, not a category (may be random var if multiple measures per age)
+ #Random Variables
   #Paternity/Clutch
   #ID
-
-
-#Meander - the change in direction of movement of a subject relative to the distance moved by the subject. 
-  #Gives an indiciation on how convoluted the subject's trajectory is.
-  #relative meander - change in direction is signed (clockwise = negative, counterclockwise = positive); RM = relative turn angle/distance moved
-  #absolute meander - change is unsigned. AKA absolute value of relative meander ; AM = |relative turn angle/distance moved|
-#NOTE - when distance moved is very small (young ages), meander can have high, unrealistic values
 
 #Angular Velocity - relative turn angle / time difference ; degrees per second; can be + or - 
   #measures the speed of change in direction of movement - used to assess turn bias or circular tendency and abnormalities of behavior
   #NOTE - turn angle is sensitive to small movements of body points. if distance moved is very small, turn angle can get high, unrealistic values (additionally, consecutive turns can have high values)
   #to combat this ^^, let's scale distance moved
 
+#Mobility - percentage of pixel change between current sample and previous sample *detected in the subject only* ; ranges from 0 - 100%
+  #NOTE - mobility depends on size of subject only, not on arena size. small fish results in small number of pixels that change, therefore small movements results in high change
+  #used to detect activity
+
+#Cumulative duration in Z2 was activated only once crossed the threshold of Z2; same with freq zone alteration
+
+{#removed dep variables that were considered:
+  #Latency,  etho$LatencyZ2               (boldness)
+  #Total Distance,  etho$TotDist          (activity)
+  #Mean Meander,  etho$MeanMeander        (exploration)     +/- values
+  #Mean Activity, etho$meanactiv          (activity)
+
+#Meander - the change in direction of movement of a subject relative to the distance moved by the subject. 
+  #Gives an indiciation on how convoluted the subject's trajectory is.
+  #relative meander - change in direction is signed (clockwise = negative, counterclockwise = positive); RM = relative turn angle/distance moved
+  #absolute meander - change is unsigned. AKA absolute value of relative meander ; AM = |relative turn angle/distance moved|
+  #NOTE - when distance moved is very small (young ages), meander can have high, unrealistic values
+
 #Activity - percentage of changed pixels in *entire arena* between current and previous sample (independent of the subject)
   #actv = n changed pixels / total n pixels * 100 ; [if all pixels are same, no activity]
   #if animal is moving and increases in velocity, activity/mobility will increase, cuz pixels are increasingly different as it moves faster
   #mean activity averages across number of samples (i.e., time)
-#Mobility - percentage of pixel change between current sample and previous sample *detected in the subject only* ; ranges from 0 - 100%
-#NOTE - activity depends on size of subject relative to arena, therefore, if animal is small in arena, activity will be small
-#NOTE - mobility depends on size of subject only, not on arena size. small fish results in small number of pixels that change, tehrefore small movements reulst in high change
-#used to detect activity
-
-#Cumulative duration in Z2 was activated only once crossed the threshold of Z2; smae with freq zone alteration
-
-
+  #NOTE - activity depends on size of subject relative to arena, therefore, if animal is small in arena, activity will be small
+}
 
 ###Step 2: PCA ANALYSIS
-#https://www.statology.org/principal-components-analysis-in-r/
+{#https://www.statology.org/principal-components-analysis-in-r/
+  #used to determine the variables of interest
+  #first, look for variables in the top PCs. For those that are related, choose one.
+  #then determine which are not related and figure out if they can be interpreted as a personality behavioral trait
 
 #calc principal components
 pca <- prcomp(data, scale=TRUE)  #use etho for all variables
@@ -128,8 +137,11 @@ for(i in unique(etho$Age)){
   pca_i$x <- -1*pca_i$x
   biplot(pca_i, scale=0, main=i)
 }
+}
 
-#Step 3: Find relatedness among treatments
+###Step 3: Find relatedness among treatments
+#many fathers represented in multiple treatments, and multiple clutches from mutliple fathers
+{
 for(p in unique(etho$Treatment)){
   temp = etho[etho$Treatment == p,,drop=FALSE]
   print(paste("treatment",p))
@@ -149,9 +161,22 @@ for(f in unique(etho$Paternity)){
 #0 has 2 clutches with Father 316 (3-16A & 3-16B) and 2 clutches with Father 318 (3-18A & 3-18I) and 2 clutches with Father 47 (4-7A & 4-7B) and 2 clutches with Father 53 (5-3A & 5-3B).
 #5 has 2 clutches with Father 39 (3-9A & 3-9B) and 2 clutches with Father 318 (3-18E & 3-18G)
 #25 has 2 clutches with Father 37 (3-7B & 3-7F) and 3 clutches with Father 318 (3-18C & 3-18F)
+}
 
+###Step 4: determine distribution of data and how to best analyze
+shapiro.test(residuals(etho$Mean.Mobility))
+#look into what to do with angles cuz it is bound by 180 in both directions
 
-###Step 4: Spaghetti Plots
+plotNormalHistogram(log(etho$Mean.Mobility))
+shapiro.test(residuals(lm(log(Mean.Mobility)~Age,etho)))  #by age or by treatment
+bartlett.test(Mean.Mobility~Age,etho)
+
+boxplot(log(Mean.Mobility)~Age,etho,main="total distance")
+fligner.test(TotDist~Treatment,all) 
+kruskal.test(TotDist~Treatment,all)
+dunnTest(TotDist~Treatment,all,method="bh")
+
+###Spaghetti Plots
 library(CorrMixed)
 Spaghetti.Plot(Dataset=etho, Outcome=TotDist, Id=FishName, Time=Age,
                xlim=c(0,190),ylim=c(0,max(etho$TotDist)))
