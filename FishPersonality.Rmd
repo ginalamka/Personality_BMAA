@@ -22,7 +22,7 @@ Our main questions with these data are:
 We first need to determine the relationships among the variables recorded by Ethovision.
 
 ```{r variables}
-etho = read.csv(url("https://raw.githubusercontent.com/ginalamka/Personality_BMAA/main/EthoData_RAW.csv?token=GHSAT0AAAAAACB372QAVIFQUKNL2AAXGR3EZDPWBAA"), header=T, sep=",", stringsAsFactors=F)
+etho = read.csv(url("https://raw.githubusercontent.com/ginalamka/Personality_BMAA/main/EthoData_updated.csv?token=GHSAT0AAAAAACB372QA37AYRBA76MHRCWXSZD7LT4Q"), header=T, sep=",", stringsAsFactors=F)
 
 ##How correlated are the variables?
 #Create dataframe with just numeric/integer values
@@ -118,10 +118,39 @@ ggplot(plot.data, aes(x = as.numeric(age), y = abs(value), color = variables)) +
   geom_line() +
   theme_bw()
 
+```
 
+## PC conclusions
+The PC loadings are too diffuse and inconsistent across time points. We will move forward with candidate variables for 3 personality traits, chosen based on the correlation matrix.
 
+# Variables:
+1. Exploration = Angular Velocity. The relative turn angle / time difference ; degrees per second; can be + or -. Measures the speed of change in direction of movement - used to assess turn bias or circular tendency and abnormalities of behavior. NOTE - turn angle is sensitive to small movements of body points. if distance moved is very small, turn angle can get high, unrealistic values (additionally, consecutive turns can have high values). To combat this, let's scale distance moved
 
+2. Activity = Mobility. The percentage of pixel change between current sample and previous sample *detected in the subject only* ; ranges from 0 - 100%. NOTE - mobility depends on size of subject only, not on arena size. small fish results in small number of pixels that change, therefore small movements results in high change
+
+3. Boldness = Cumulative duration in the center.
+
+```{r turning angle rpt}
+etho = read.csv(url("https://raw.githubusercontent.com/ginalamka/Personality_BMAA/main/EthoData_updated.csv?token=GHSAT0AAAAAACB372QA37AYRBA76MHRCWXSZD7LT4Q"), header=T, sep=",", stringsAsFactors=F)
+
+#test fit of Gaussian distribution
+library(ggpubr)
+ggqqplot(log(abs(scale(etho$MeanAngVel, center = T, scale = T))))
+shapiro.test(log(abs(scale(etho$MeanAngVel, center = T, scale = T))))
+
+library(lme4)
+ta1 = lmer(log(abs(scale(MeanAngVel, center = T, scale = T))) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+summary(ta1) #fit is singular because clutch random effect accounts for 0 variance
+ggqqplot(ta1@u)
+plot(ta1)
+
+# Maybe MeanTurnAngle will fit better? Why do values range from -16 to +16?
+ta2 = lmer(log(abs(MeanTurnAngle)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+summary(ta2)
+ggqqplot(ta2@u)
+plot(ta2)
+
+library(rptR)
 
 
 ```
-
