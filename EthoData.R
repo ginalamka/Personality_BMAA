@@ -23,17 +23,22 @@ for(i in 1:nrow(etho)){
   }
 }   
 
-setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/2023_Etho,Embryo,Spinning/Personality_BMAA") #set working directory
-etho=read.table("pca_cutethodata.csv",header=TRUE, sep=",")
-etho=read.table("pca_supercutethodata.csv",header=TRUE, sep=",")
+#set Treatment as a factor
+etho$Treatment = as.factor(etho$Treatment)
+
+#for now, keep age as a number since age might have an interaction effect with treatment?
+
+#setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/2023_Etho,Embryo,Spinning/Personality_BMAA") #set working directory
+#etho=read.table("pca_cutethodata.csv",header=TRUE, sep=",")
+#etho=read.table("pca_supercutethodata.csv",header=TRUE, sep=",")
 str(etho)
 
 #FOR CUT ETHO DATA ONLY--change the indv tested on day 15 to day 14
-for(i in 1:nrow(etho)){
-  if(etho[i,1]==15){
-    etho[i,1]=14
-  }
-} #age = as.numeric(etho[,3])  
+#for(i in 1:nrow(etho)){
+#  if(etho[i,1]==15){
+#    etho[i,1]=14
+#  }
+#} #age = as.numeric(etho[,3])  
 
 
 ####Step 1: Check correlations among variables
@@ -60,9 +65,10 @@ mea <- etho$MeanMeander  #not sure what this really is lol ; #note, has pos and 
 angv <- etho$MeanAngVel  #note, has pos and neg values
 frq <- etho$FreqZAlter
 actv <- etho$Mean.Mobility
+andr <- etho$VarTurnAngle
 
 data = matrix(nrow=nrow(etho), ncol=8)
-data <- cbind(age, pat, treat, dist, dur, lat, mea, angv, actv)  #frq, actv
+data <- cbind(age, pat, treat, dist, dur, lat, mea, angv, actv, andr)  #frq, actv
 D <- cor(data)
 corrplot(D, method = "number")
   #age, distance, activity, and freq zone alteration all related -- choose ONE
@@ -172,133 +178,281 @@ for(f in unique(etho$Paternity)){
 
 ###Step 4: determine distribution of data and how to best analyze
   #want to find the best model using LRT to decide which to put into rptR
+library(rcompanion)
+library(car)
+library(DescTools)
+library(FSA)
+library(dplyr)
+library(lme4)
+library(stargazer)
+library(lmerTest)
 library(lmtest)
 library(rptR)
 
-#MeanAngVel
-hist(log(abs(etho$MeanAngVel)))
-hist(log(abs(scale(etho$MeanAngVel))))
-qqnorm(log(abs(etho$MeanAngVel)))
-qqline(log(abs(etho$MeanAngVel)))
-qqnorm(log(abs(scale(etho$MeanAngVel))))
-qqline(log(abs(scale(etho$MeanAngVel))))  #doesnt seem like scaling helps
+##VarTurnAngle
+hist(log(etho$VarTurnAngle))
+hist(etho$VarTurnAngle)
+plotNormalHistogram(log(etho$VarTurnAngle))
+etho$scaledVarTurnAngle <- scale(etho$VarTurnAngle, center=T, scale=T)
+plotNormalHistogram(scale(etho$VarTurnAngle, center=T, scale=T))
+qqnorm(etho$VarTurnAngle)
+qqline(etho$VarTurnAngle)
+qqnorm(etho$scaledVarTurnAngle)
+qqline(etho$scaledVarTurnAngle)  
+qqnorm(log(etho$VarTurnAngle))
+qqline(log(etho$VarTurnAngle))
 
-v1 <- lmer(log(abs(etho$MeanAngVel)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
-summary(v1)  #is singular - no variance due to Paternity
-anova(v1)
+v.1 <- lmer(log(etho$VarTurnAngle) ~ Treatment + Age + Mean.Mobility + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+v.2 <- lmer(scaledVarTurnAngle ~ Treatment + Age + Mean.Mobility + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+anova(v.1, v.2) #scaled is better than logged, though they are basically the same
 
-v2 <- lmer(log(abs(etho$MeanAngVel)) ~ Treatment + Age + (1|FishName) + (1|Clutch), data = etho)
-summary(v2)   #is singular - no variance due to indv ID
-anova(v2)
+v1 <- lmer(scaledVarTurnAngle ~ Treatment + Age + Mean.Mobility + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+summary(v1)  #doesnt look like any random effects will be important
 
-v3 <- lmer(log(abs(etho$MeanAngVel)) ~ Treatment + Age + (1|FishName), data = etho)
+v7 <- lmer(scaledVarTurnAngle ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+summary(v7)  #no variance due to random effects
+anova(v7, v1) #v1 is better -- include mean.mobility
+
+v2 <- lmer(scaledVarTurnAngle ~ Treatment + Age + Mean.Mobility + (1|FishName) + (1|Clutch), data = etho)
+summary(v2)   #doesnt look like any random effects will be important
+anova(v2, v1) #close but v1 is better
+
+v3 <- lmer(scaledVarTurnAngle ~ Treatment + Age + Mean.Mobility + (1|FishName), data = etho)
 summary(v3)
-anova(v3)
+anova(v3, v1) #v1 is better
 
-v4 <- lmer(log(abs(etho$MeanAngVel)) ~ Treatment + Age + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho) #scale is off here
-summary(v4)  #is singular - no variance due to indv ID or Paternity
-anova(v4)
+v4 <- lmer(scaledVarTurnAngle ~ Treatment + Age + Mean.Mobility + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho) 
+summary(v4)  #doesnt look like any random effects will be important
+anova(v4, v1) #v4 is better
 
-v5 <- lm(log(abs(etho$MeanAngVel)) ~ Treatment + Age + Treatment*Age, data = etho)
+v5 <- lm(scaledVarTurnAngle ~ Treatment + Age + Treatment*Age + Mean.Mobility, data = etho)
 summary(v5)
-anova(v5)
+anova(v4, v5) #v4 is better
 
-v6 <- lmer(log(abs(etho$MeanAngVel)) ~ Treatment + Age + (1|Clutch), data = etho)
+v6 <- lmer(scaledVarTurnAngle ~ Treatment + Age + Mean.Mobility +(1|Clutch), data = etho)
 summary(v6)   
-anova(v6)
+anova(v6, v4) #v4 is better
+
+v7 <- lmer(scaledVarTurnAngle ~ Treatment + Age + Mean.Mobility + Treatment*Age+ (1|FishName) + (1|Clutch), data = etho) 
+summary(v7)  #doesnt look like any random effects will be important
+anova(v7, v4) #close but v4 is better
+
+v8 <- lmer(scaledVarTurnAngle ~ Treatment + Age + Mean.Mobility + Treatment*Age+ (1|FishName), data = etho) 
+summary(v8)  #doesnt look like any random effects will be important
+anova(v4, v8) #v4 is better
+
+v9 <- lmer(scaledVarTurnAngle ~ Treatment + Age + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho) 
+summary(v9)  #doesnt look like any random effects will be important
+anova(v4, v9) #v4 is better
 
 
-anova(v1, v2, v3, v4, v5, v6, test="LRT") #I think this is saying v3 is the best?
-lrtest(v1, v2, v3, v4, v5, v6)            #but I think this is suggesting differently?
+rptV = rpt(scaledVarTurnAngle ~ Treatment + Age + Mean.Mobility + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho, grname = "FishName", datatype = "Gaussian", nboot = 1000, npermut = 100)
+summary(rptV) #is singular
+plot(rptV)
+plot(rptV, type="permut")
+#R = 0.0434 , p = 0.043 
+#fit is singular, but random effects all seem to account for a significant amount of variance, since full model fits better
 
-logangvel = log(abs(etho$MeanAngVel))
-rptV = rpt(logangvel ~ Treatment + Age + (1|FishName), data = etho, grname = c("FishName", "Residual", "Fixed"), datatype = "Gaussian", nboot = 1000, npermut = 100)
-summary(rptV)
-#R =  , p 
 
-
-#Mean.Mobility
+##Mean.Mobility
+  #mobility = activity as the response var, Treatment and Age are Fixed Effects, VarTurnAngle is a covariate, and Clutch, Paternity, and FishID are random effects
 hist(etho$Mean.Mobility)
 qqnorm(etho$Mean.Mobility)
 qqline(etho$Mean.Mobility)
 
 m1 <- lmer(Mean.Mobility ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
 summary(m1)
-anova(m1)
 
-m2 <- lmer(Mean.Mobility ~ Treatment + Age + (1|FishName) + (1|Clutch), data = etho)
+m2 <- lmer(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale=T)+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
 summary(m2)
-anova(m2)
+anova(m2, m1)  #m2 is better
 
-m3 <- lmer(Mean.Mobility ~ Treatment + Age + (1|FishName), data = etho)
+m3 <- lmer(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale=T)+ (1|FishName) + (1|Clutch) , data = etho)
 summary(m3)
-anova(m3)
+anova(m3, m2)  #m2 is better
 
-m4 <- lmer(Mean.Mobility ~ Treatment + Age + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho) #scale is off here
+m4 <- lmer(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale=T)+ (1|FishName), data = etho) 
 summary(m4)
-anova(m4)
+anova(m4, m2)  #m2 is better
 
-m5 <- lm(Mean.Mobility ~ Treatment + Age + Treatment*Age, data = etho)
+m5 <- lm(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale=T), data = etho)
 summary(m5)
-anova(m5)
+anova(m2, m5)  #m2 is better
 
-anova(m1, m2, m3, m4, m5, test="LRT") #I think this is saying m3 is the best?
-lrtest(m1, m2, m3, m4, m5)            #but I think this is suggesting differently?
+m6 <- lmer(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale=T) + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho) #scale is off here #lmer(Mean.Mobility ~ Treatment + Age + Treatment*Age + (1|FishName) + (1|Clutch), data = etho)
+anova(m2, m6)  #these are the same, use the more simple model, m2
 
-rptM = rpt(Mean.Mobility ~ Treatment + Age + (1|FishName), data = etho, grname = c("FishName", "Residual", "Fixed"), datatype = "Gaussian", nboot = 1000, npermut = 100)
+m7 <- lmer(Mean.Mobility ~ Treatment + Age + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+anova(m6, m7)  #m6 is better than m7, but m2 is still best
+
+m8 <- lm(Mean.Mobility ~ Treatment + Age + Treatment*Age + scale(VarTurnAngle, center=T, scale=T) , data = etho)
+anova(m8, m5) #these are the same, so use without interaction effect
+
+m9 <- lmer(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale=T) + (1|Clutch), data = etho)
+anova(m9, m2) #m2 is still best
+
+anova(m1, m2, m3, m4, m5, m6, m7, m8, m9) 
+
+summary(m2)
+#because the std.dev overlaps the variance, i think that means that clutch is unnecessary, so try without it
+
+m0 <- lmer(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale=T)+ (1|FishName) + (1|Paternity), data = etho)
+anova(m2, m0)  #these are the same, so go with the more simple model
+
+etho$varangle <- scale(etho$VarTurnAngle, center=T, scale=T)
+rptM = rpt(Mean.Mobility ~ Treatment + Age + varangle + (1|FishName) + (1|Paternity), data = etho, grname = "FishName", datatype = "Gaussian", nboot = 1000, npermut = 500)
 summary(rptM)
-#R = .17 , p < .05
+#R = .0916 , p < .001
+#fit is singular, but random effects both seem to account for significant amount of variance, since full model fits better
 
 
-#CumDur.Z2
-hist(log(etho$CumDur.Z2+1))
-plotNormalHistogram(etho$CumDur.Z2)
-plotNormalHistogram(log(etho$CumDur.Z2+1))
+##CumDur.Z2
+  #this is a PROPORTION, so will be a binomial family
+  #find best data transformation
+logitTransform <- function(p) { log(p/(1-p)) }
+asinTransform <- function(p) { asin(sqrt(p)) }
+hist(etho$CumDur.Z2/100)
+hist(logitTransform((etho$CumDur.Z2+1)/100))
+plotNormalHistogram(etho$CumDur.Z2/100)
+plotNormalHistogram(log((etho$CumDur.Z2+1)/100))
+plotNormalHistogram(logitTransform((etho$CumDur.Z2+1)/100))
+plotNormalHistogram(asinTransform(etho$CumDur.Z2/100))
 
-qqnorm(log(etho$CumDur.Z2+1)) 
-qqline(log(etho$CumDur.Z2+1))
+qqnorm(logitTransform((etho$CumDur.Z2+1)/100)) 
+qqline(logitTransform((etho$CumDur.Z2+1)/100))
+qqnorm(asinTransform((etho$CumDur.Z2+1)/100)) 
+qqline(asinTransform((etho$CumDur.Z2+1)/100))
+qqnorm(log((etho$CumDur.Z2+1)/100)) 
+qqline(log((etho$CumDur.Z2+1)/100))
 
-d1 <- lmer(log(etho$CumDur.Z2+1) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
-summary(d1)  #is singular - paternity accounts for zero variance
+rangeScale <- function(x) { (x-min(x)) / (max(x)-min(x)) }
+it <- rangeScale(logitTransform((etho$CumDur.Z2+1)/100))
+it2 <- rangeScale(asinTransform((etho$CumDur.Z2+1)/100))
+it3 <- rangeScale(log((etho$CumDur.Z2+1)/100))
+plot((etho$CumDur.Z2+1)/100, it, col="red")
+points((etho$CumDur.Z2+1)/100, it2, col="blue")
+points((etho$CumDur.Z2+1)/100, it3, col="yellow")
+#according to http://strata.uga.edu/8370/rtips/proportions.html#:~:text=1%20Logit%20transformation%20The%20logit%20transformation%20is%20the,effects%20...%204%20Recommendations%20...%205%20References%20
+  #the transformation with the largest curve is the best BUT when put in the model (below), looks like arcsine is the better fit for the model
+
+d.1 <- lmer(rangeScale(logitTransform((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+d.2 <- lmer(rangeScale(asinTransform((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+d.3 <- lmer(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+anova(d.1, d.2, d.3)  #this looks like asin transformation is best, go with that for now
+  #NOTE if you do rangeScale(logit, asin, log), log looks best, if you dont scale it, asin transformation is better
+
+D.2 <- glmer(rangeScale(asinTransform((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho, family = "binomial")
+anova(d.2, D.2)  #this says that glmer with binomial dist fits much better than lmer
+
+D.1 <- glmer(rangeScale(logitTransform((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho, family = "binomial")
+D.3 <- glmer(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho, family = "binomial")
+anova(D.1, D.2, D.3)  #D.2 is best glmer model
+
+anova(d.3, D.2)  #this suggests that a log of CumDur fit to a linear model with a Gaussian dist is better than a glm with a Binomial dist
+
+d1 <- lmer(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+summary(d1)  #is singular - paternity accounts for zero variance, clutch and fishname also seem unhelpful
 anova(d1)
 
-d2 <- lmer(log(etho$CumDur.Z2+1) ~ Treatment + Age + (1|FishName) + (1|Clutch), data = etho)
+d2 <- lmer(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName) + (1|Clutch), data = etho)
 summary(d2)
-anova(d2)
+anova(d1, d2) #they are the same, so use fewer params, aka d2
 
-d3 <- lmer(log(etho$CumDur.Z2+1) ~ Treatment + Age + (1|FishName), data = etho)
+d3 <- lmer(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName), data = etho)
 summary(d3)
-anova(d3)
+anova(d2, d3) #they are the same, so use fewer params, aka d3
 
-d4 <- lmer(log(etho$CumDur.Z2+1) ~ Treatment + Age + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho) #scales are off on interaction effect
-summary(d4)  #is singular cuz paternity accounts for no variance
-anova(d4)
+d4 <- lmer(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho) #scales are off on interaction effect
+summary(d4)  #is singular cuz random effects account for no variance
+anova(d4, d3) #they are the same, so use fewer params, aka d3
 
-d5 <- lm(log(etho$CumDur.Z2+1) ~ Treatment + Age + Treatment*Age, data = etho)
+d5 <- lm(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + Treatment*Age, data = etho)
 summary(d5)
-anova(d5)
+anova(d3, d5) #they are the same, so use fewer params, aka d3
 
-anova(d1, d2, d3, d4, d5, test="LRT")
-lrtest(d1, d2, d3, d4, d5)
+d6 <- lm(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age , data = etho)
+anova(d3, d5, d6)  #nearly the same, simpler model is d6
 
-rptD = rpt((log(etho$CumDur.Z2+1)) ~ Treatment + Age + (1|FishName), data = etho, grname = c("FishName", "Residual", "Fixed"), datatype = "Gaussian", nboot = 1000, npermut = 100)
-rptD = rpt(d3, data = etho, grname = c("FishName", "Residual", "Fixed"), datatype = "Gaussian", nboot = 1000, npermut = 100)
-summary(rptD)
-#R =  , p =
+d7 <- lmer(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + Treatment*Age + (1|FishName), data = etho)
+anova(d7, d6)  #d6 is better
+anova(d3, d6)  #without the random effects is better
+  #I think that means that there isnt expected to be repeatability here
+  #BUT need a random effect for rpt
+d13 <- lmer(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|Clutch), data = etho) 
+d23 <- lmer(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|Paternity), data = etho)
+anova(d3, d13, d23) #these are all the same, but paternity is the slightly better fit
 
 
-###### Code to check assumptions
-# library(DHARMa)
-# library(lme4)
-# simulationOutput <- simulateResiduals(fittedModel = glmer() ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch), family=binomial, data=etho), n=250) #250 simulations, but if want higher precision change n>1000; Log transform because trials does not fit a poisson distribution.
-# plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. Looks randomly scattered
-# testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
-# #p=
-# testZeroInflation(simulationOutput) #compare expected vs observed zeros, not zero-inflated if p>0.05.
-# #p=
-# testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
-# #p=
-# plot(simulationOutput)
+etho$cumdur <- rangeScale(log((etho$CumDur.Z2+1)/100))
+etho$CUMDUR <- rangeScale(asinTransform((etho$CumDur.Z2+1)/100))
+rptD1 = rpt(cumdur ~ Treatment + Age + (1|Paternity), data = etho, grname = "Paternity", datatype = "Gaussian", nboot = 100, npermut = 100)
+summary(rptD1) #paternity can be removed therefore probs not a good model
+rptD2 = rpt(cumdur ~ Treatment + Age + (1|FishName), data = etho, grname = "FishName", datatype = "Gaussian", nboot = 100, npermut = 100)
+summary(rptD2) 
+  #R = .106 , p < 0.001
+rptD3 = rpt(CUMDUR ~ Treatment + Age + (1|FishName), data = etho, grname = "FishName", datatype = "Proportion", nboot = 100, npermut = 100)
+summary(rptD3)  #failed
+rptD4 = rptBinary(CUMDUR ~ Treatment + Age + (1|FishName), data = etho, grname = "FishName", nboot = 100, npermut = 100)
+summary(rptD4)  #failed
+rptD5 = rptBinary(cumdur ~ Treatment + Age + (1|FishName), data = etho, grname = "FishName", nboot = 100, npermut = 100)
+summary(rptD5)  #output looks like shit
+
+#NOTE - rptD wont work if datatype = "Proportion" for logged duration or arcsine duraton, so fit it to Gaussian
+#paternity seems to fit better than FishName in lmer, but in rpt, FishName seems more important
+
+
+#check assumptions for distribution (binomial)
+library(DHARMa)
+simulationOutput1 <- simulateResiduals(fittedModel = glm(rangeScale(asinTransform((etho$CumDur.Z2+1)/100)) ~ Treatment + Age , family=binomial, data=etho), n=250) #250 simulations, but if want higher precision change n>1000; transform because trials does not fit a poisson distribution.
+  #warning: In eval(family$initialize) : non-integer #successes in a binomial glm! == online looks like this warning can be ignored
+plot(simulationOutput1$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor
+  #looks somewhat uniform but with variance
+testDispersion(simulationOutput1) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
+  #p < 0.001
+testZeroInflation(simulationOutput1) #compare expected vs observed zeros, not zero-inflated if p>0.05.
+  #p < 0.001
+testUniformity(simulationOutput1) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
+  #p < 0.001
+plot(simulationOutput1)
+
+simulationOutput2 <- simulateResiduals(fittedModel = glmer(rangeScale(asinTransform((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName), family=binomial, data=etho), n=250) #250 simulations, but if want higher precision change n>1000; transform because trials does not fit a poisson distribution.
+  #is singular and has similar warning to above
+plot(simulationOutput2$scaledResiduals)
+  #looks similar to plot above
+testDispersion(simulationOutput2)
+  #p = 0.432
+testZeroInflation(simulationOutput2)
+  #p < 0.001
+testUniformity(simulationOutput2)
+  #p < 0.001
+plot(simulationOutput2)
+
+simulationOutput3 <- simulateResiduals(fittedModel = glmer(((etho$CumDur.Z2+1)/100) ~ Treatment + Age + (1|FishName), family=binomial, data=etho), n=250) #250 simulations, but if want higher precision change n>1000; transform because trials does not fit a poisson distribution.
+#is singular and warning "non-integer #successes in a binomial glm!"
+plot(simulationOutput3$scaledResiduals)
+#residuals are everywhere
+testDispersion(simulationOutput3)
+#p = 0.112
+testZeroInflation(simulationOutput3)
+#p < 0.001
+testUniformity(simulationOutput3)
+#p < 0.001
+plot(simulationOutput3)
+
+simulationOutput4 <- simulateResiduals(fittedModel = glmer(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName), family=binomial, data=etho), n=250) #250 simulations, but if want higher precision change n>1000; transform because trials does not fit a poisson distribution.
+#is singular and has similar warning to above
+plot(simulationOutput4$scaledResiduals)
+#looks similar to plot above
+testDispersion(simulationOutput4)
+#p < 0.001
+testZeroInflation(simulationOutput4)
+#p < 0.001
+testUniformity(simulationOutput4)
+#p < 0.001
+plot(simulationOutput4)
+
+#I *think* that since all of these seem significantly different from expected (zero inflation, non uniformity, dispersion), that suggests that the model can't be binomial and should try to fit as Gaussian
+
 
 ########
 shapiro.test(residuals(log(etho$CumDur.Z2)))
