@@ -123,6 +123,8 @@ ggplot(plot.data, aes(x = as.numeric(age), y = abs(value), color = variables)) +
 ## PC conclusions
 The PC loadings are too diffuse and inconsistent across time points. We will move forward with candidate variables for 3 personality traits, chosen based on the correlation matrix.
 
+
+
 # Variables:
 1. Exploration = Angular Velocity. The relative turn angle / time difference ; degrees per second; can be + or -. Measures the speed of change in direction of movement - used to assess turn bias or circular tendency and abnormalities of behavior. NOTE - turn angle is sensitive to small movements of body points. if distance moved is very small, turn angle can get high, unrealistic values (additionally, consecutive turns can have high values). To combat this, let's scale distance moved
 
@@ -131,7 +133,7 @@ The PC loadings are too diffuse and inconsistent across time points. We will mov
 3. Boldness = Cumulative duration in the center.
 
 ```{r turning angle rpt}
-etho = read.csv(url("https://raw.githubusercontent.com/ginalamka/Personality_BMAA/main/EthoData_updated.csv?token=GHSAT0AAAAAACB372QA37AYRBA76MHRCWXSZD7LT4Q"), header=T, sep=",", stringsAsFactors=F)
+etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
 
 #test fit of Gaussian distribution
 library(ggpubr)
@@ -144,13 +146,57 @@ summary(ta1) #fit is singular because clutch random effect accounts for 0 varian
 ggqqplot(ta1@u)
 plot(ta1)
 
-# Maybe MeanTurnAngle will fit better? Why do values range from -16 to +16?
+# Maybe MeanTurnAngle will fit better? Why do values range from -16 to +16? Description of this variable on pg. 63 of Manual pdf
+# Do we have absolute or relative mean turn angle/angular velocity?
 ta2 = lmer(log(abs(MeanTurnAngle)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
 summary(ta2)
 ggqqplot(ta2@u)
 plot(ta2)
 
-library(rptR)
-
-
 ```
+
+
+## Rethinking exploration
+
+The data for turning angle are summarized from Relative turning angle (where the sign of the turn is taken in to account). This means that mean of turning angle within a trial are not reflective of the number and degree of turns individuals make because turns in different directions cancel out.
+
+We could use Variance in Turning Angle to illustrate the predictability with which an individual turns, but variance is also calculated based on the mean which does not have much significance for exploration. Large numbers mean that turning angle is very different from the mean, small numbers mean the turning angle is similar to the mean.
+
+Alternatively, we could pick different variables. For one, we could say Duration in the Center is representative of exploration and Latency to enter the Center is representative of boldness. Or we could say Frequency of Zone Alterations is a measure of exploration. Although it could seem like another measure of activity, it is not very correlated with Mean Mobility (0.24). This variable does look like it varies by arena size, so we would need to account for that in some way - maybe include an offset for average body size at each age, or arena size.
+
+
+```{r exploration alternatives}
+library(ggplot2)
+ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = VarTurnAngle)) +
+  #facet_wrap(~Treatment) +
+  geom_boxplot() +
+  theme_classic()
+ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = FreqZAlter)) +
+  #facet_wrap(~Treatment) +
+  geom_boxplot() +
+  theme_classic()
+#one outlier individual in Control that crossed zones a lot
+ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = LatencyZ2360)) +
+  #facet_wrap(~Treatment) +
+  geom_boxplot() +
+  theme_classic()
+#the ceiling values could make it hard to fit these data
+
+###### Code to check model assumptions
+# library(DHARMa)
+# library(lme4)
+# simulationOutput <- simulateResiduals(fittedModel = glmer() ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch), family=binomial, data=etho), n=250) #250 simulations, but if want higher precision change n>1000; Log transform because trials does not fit a poisson distribution.
+# plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. Looks randomly scattered
+# testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
+# #p=
+# testZeroInflation(simulationOutput) #compare expected vs observed zeros, not zero-inflated if p>0.05.
+# #p=
+# testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
+# #p=
+# plot(simulationOutput)
+```
+
+
+
+
+
