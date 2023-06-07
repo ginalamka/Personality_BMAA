@@ -288,17 +288,17 @@ summary(rptD)
 
 
 ###### Code to check assumptions
-library(DHARMa)
-library(lme4)
-simulationOutput <- simulateResiduals(fittedModel = glmer(log(TrialsToReverse) ~ ReverseNumber + (1|ID), family=gaussian, data=d), n=250) #250 simulations, but if want higher precision change n>1000; Log transform because trials does not fit a poisson distribution.
-plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. Looks randomly scattered
-testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation. 
-#p=0.84 
-testZeroInflation(simulationOutput) #compare expected vs observed zeros, not zero-inflated if p>0.05. 
-#p=1 so not zero inflated
-testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
-#p=0.81 so NOT heteroscedastic
-plot(simulationOutput) 
+# library(DHARMa)
+# library(lme4)
+# simulationOutput <- simulateResiduals(fittedModel = glmer() ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch), family=binomial, data=etho), n=250) #250 simulations, but if want higher precision change n>1000; Log transform because trials does not fit a poisson distribution.
+# plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. Looks randomly scattered
+# testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
+# #p=
+# testZeroInflation(simulationOutput) #compare expected vs observed zeros, not zero-inflated if p>0.05.
+# #p=
+# testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
+# #p=
+# plot(simulationOutput)
 
 ########
 shapiro.test(residuals(log(etho$CumDur.Z2)))
