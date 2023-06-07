@@ -254,6 +254,20 @@ plot(rptV, type="permut")
 #fit is singular, but random effects all seem to account for a significant amount of variance, since full model fits better
 
 
+#Latency
+  #I foresee issues with Latency like in CumDur -- more a success/fail type thing
+  #dividing Latency by 360 s (total trial time) turns it into a proportion
+hist(etho$LatencyZ2360)
+qqnorm(etho$LatencyZ2360)
+qqline(etho$LatencyZ2360)
+
+hist(logitTransform(etho$LatencyZ2360))  #this def seems to be the best for distribution but range suggests need for scaling
+hist(asinTransform(etho$LatencyZ2360))
+hist(log((etho$LatencyZ2360+1)))
+hist(etho$LatencyZ2360)
+
+
+
 ##Mean.Mobility
   #mobility = activity as the response var, Treatment and Age are Fixed Effects, VarTurnAngle is a covariate, and Clutch, Paternity, and FishID are random effects
 hist(etho$Mean.Mobility)
