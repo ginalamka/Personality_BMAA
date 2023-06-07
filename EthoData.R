@@ -16,6 +16,13 @@
 setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/2023_Etho,Embryo,Spinning/Personality_BMAA") #set working directory
 etho=read.table("EthoData_updated.csv",header=TRUE, sep=",")  #see changes in "updated" dataset above
 
+#change the indv tested on day 15 to day 14
+for(i in 1:nrow(etho)){
+  if(etho[i,3]==15){
+    etho[i,1]=14
+  }
+}   
+
 setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/2023_Etho,Embryo,Spinning/Personality_BMAA") #set working directory
 etho=read.table("pca_cutethodata.csv",header=TRUE, sep=",")
 etho=read.table("pca_supercutethodata.csv",header=TRUE, sep=",")
@@ -164,7 +171,127 @@ for(f in unique(etho$Paternity)){
 }
 
 ###Step 4: determine distribution of data and how to best analyze
-shapiro.test(residuals(etho$Mean.Mobility))
+  #want to find the best model using LRT to decide which to put into rptR
+library(lmtest)
+library(rptR)
+
+#MeanAngVel
+hist(log(abs(etho$MeanAngVel)))
+hist(log(abs(scale(etho$MeanAngVel))))
+qqnorm(log(abs(etho$MeanAngVel)))
+qqline(log(abs(etho$MeanAngVel)))
+qqnorm(log(abs(scale(etho$MeanAngVel))))
+qqline(log(abs(scale(etho$MeanAngVel))))  #doesnt seem like scaling helps
+
+v1 <- lmer(log(abs(etho$MeanAngVel)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+summary(v1)  #is singular - no variance due to Paternity
+anova(v1)
+
+v2 <- lmer(log(abs(etho$MeanAngVel)) ~ Treatment + Age + (1|FishName) + (1|Clutch), data = etho)
+summary(v2)   #is singular - no variance due to indv ID
+anova(v2)
+
+v3 <- lmer(log(abs(etho$MeanAngVel)) ~ Treatment + Age + (1|FishName), data = etho)
+summary(v3)
+anova(v3)
+
+v4 <- lmer(log(abs(etho$MeanAngVel)) ~ Treatment + Age + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho) #scale is off here
+summary(v4)  #is singular - no variance due to indv ID or Paternity
+anova(v4)
+
+v5 <- lm(log(abs(etho$MeanAngVel)) ~ Treatment + Age + Treatment*Age, data = etho)
+summary(v5)
+anova(v5)
+
+v6 <- lmer(log(abs(etho$MeanAngVel)) ~ Treatment + Age + (1|Clutch), data = etho)
+summary(v6)   
+anova(v6)
+
+
+anova(v1, v2, v3, v4, v5, v6, test="LRT") #I think this is saying v3 is the best?
+lrtest(v1, v2, v3, v4, v5, v6)            #but I think this is suggesting differently?
+
+logangvel = log(abs(etho$MeanAngVel))
+rptV = rpt(logangvel ~ Treatment + Age + (1|FishName), data = etho, grname = c("FishName", "Residual", "Fixed"), datatype = "Gaussian", nboot = 1000, npermut = 100)
+summary(rptV)
+#R =  , p 
+
+
+#Mean.Mobility
+hist(etho$Mean.Mobility)
+qqnorm(etho$Mean.Mobility)
+qqline(etho$Mean.Mobility)
+
+m1 <- lmer(Mean.Mobility ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+summary(m1)
+anova(m1)
+
+m2 <- lmer(Mean.Mobility ~ Treatment + Age + (1|FishName) + (1|Clutch), data = etho)
+summary(m2)
+anova(m2)
+
+m3 <- lmer(Mean.Mobility ~ Treatment + Age + (1|FishName), data = etho)
+summary(m3)
+anova(m3)
+
+m4 <- lmer(Mean.Mobility ~ Treatment + Age + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho) #scale is off here
+summary(m4)
+anova(m4)
+
+m5 <- lm(Mean.Mobility ~ Treatment + Age + Treatment*Age, data = etho)
+summary(m5)
+anova(m5)
+
+anova(m1, m2, m3, m4, m5, test="LRT") #I think this is saying m3 is the best?
+lrtest(m1, m2, m3, m4, m5)            #but I think this is suggesting differently?
+
+rptM = rpt(Mean.Mobility ~ Treatment + Age + (1|FishName), data = etho, grname = c("FishName", "Residual", "Fixed"), datatype = "Gaussian", nboot = 1000, npermut = 100)
+summary(rptM)
+#R = .17 , p < .05
+
+
+#CumDur.Z2
+hist(log(etho$CumDur.Z2+1))
+plotNormalHistogram(etho$CumDur.Z2)
+plotNormalHistogram(log(etho$CumDur.Z2+1))
+
+qqnorm(log(etho$CumDur.Z2+1)) 
+qqline(log(etho$CumDur.Z2+1))
+
+d1 <- lmer(log(etho$CumDur.Z2+1) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+summary(d1)  #is singular - paternity accounts for zero variance
+anova(d1)
+
+d2 <- lmer(log(etho$CumDur.Z2+1) ~ Treatment + Age + (1|FishName) + (1|Clutch), data = etho)
+summary(d2)
+anova(d2)
+
+d3 <- lmer(log(etho$CumDur.Z2+1) ~ Treatment + Age + (1|FishName), data = etho)
+summary(d3)
+anova(d3)
+
+d4 <- lmer(log(etho$CumDur.Z2+1) ~ Treatment + Age + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho) #scales are off on interaction effect
+summary(d4)  #is singular cuz paternity accounts for no variance
+anova(d4)
+
+d5 <- lm(log(etho$CumDur.Z2+1) ~ Treatment + Age + Treatment*Age, data = etho)
+summary(d5)
+anova(d5)
+
+anova(d1, d2, d3, d4, d5, test="LRT")
+lrtest(d1, d2, d3, d4, d5)
+
+rptD = rpt((log(etho$CumDur.Z2+1)) ~ Treatment + Age + (1|FishName), data = etho, grname = c("FishName", "Residual", "Fixed"), datatype = "Gaussian", nboot = 1000, npermut = 100)
+rptD = rpt(d3, data = etho, grname = c("FishName", "Residual", "Fixed"), datatype = "Gaussian", nboot = 1000, npermut = 100)
+summary(rptD)
+#R =  , p =
+
+
+
+
+########
+shapiro.test(residuals(log(etho$CumDur.Z2)))
+shapiro.test(residuals(etho["Mean.Mobility"]))
 #look into what to do with angles cuz it is bound by 180 in both directions
 
 plotNormalHistogram(log(etho$Mean.Mobility))
@@ -172,9 +299,9 @@ shapiro.test(residuals(lm(log(Mean.Mobility)~Age,etho)))  #by age or by treatmen
 bartlett.test(Mean.Mobility~Age,etho)
 
 boxplot(log(Mean.Mobility)~Age,etho,main="total distance")
-fligner.test(TotDist~Treatment,all) 
-kruskal.test(TotDist~Treatment,all)
-dunnTest(TotDist~Treatment,all,method="bh")
+fligner.test(Mean.Mobility~Treatment,etho) 
+kruskal.test(Mean.Mobility~Treatment,etho)
+dunnTest(Mean.Mobility~Treatment,etho,method="bh")
 
 ###Spaghetti Plots
 library(CorrMixed)
