@@ -234,7 +234,7 @@ anova(b2,b3) # b2 is a significantly better fit. Use b2 in rpt function.
 
 #etho$OLREs = scale(etho$OLRE, scale = T, center = T)
 
-rptB = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100)
+rptB = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100) # model fails to converge with the OLRE 🤦
 rptB
 
 ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = log(CumDurZ2+1))) +
