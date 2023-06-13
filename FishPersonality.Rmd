@@ -130,7 +130,7 @@ The PC loadings are too diffuse and inconsistent across time points. We will mov
 
 2. Activity = Mobility. The percentage of pixel change between current sample and previous sample *detected in the subject only* ; ranges from 0 - 100%. NOTE - mobility depends on size of subject only, not on arena size. small fish results in small number of pixels that change, therefore small movements results in high change
 
-3. Boldness = Cumulative duration in the center.
+3. Boldness = Cumulative duration in the center (proportion).
 
 ```{r turning angle rpt}
 etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
@@ -191,53 +191,50 @@ Time spent in the middle is our measure of boldness. The variables are the propo
 
 ```{r boldness}
 etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
+etho$trial.time = 360
+etho$OLRE = seq_len(nrow(etho)) #column with observation-level random effect
+etho$scale.age = scale(etho$Age, scale = T, center = T)
+etho$FishName = as.factor(etho$FishName)
+etho$Treatment = as.factor(etho$Treatment)
 
 library(DHARMa)
 library(lme4)
 
-# I tried binomial, poisson and negative binomial. Negative binomial is the only model that passed all model assumption checks.
-simulationOutput <- simulateResiduals(fittedModel = lmer(log(CumDurZ2+1) ~ Treatment + scale(Age, center = T, scale = T) + Treatment*scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho), n=250) #model failed to converge with interaction term
+# I tried binomial, poisson and negative binomial. Negative binomial and Poisson with Observation-level random effect to account for overdispersion are the only models that passed all model assumption checks.
+#Binomial:
+simulationOutput <- simulateResiduals(fittedModel = glmer.nb(round(CumDur.Z2) ~ Treatment + scale(Age, center = T, scale = T) + Treatment*scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch) + (1|Paternity), family = binomial, data=etho), n=250) 
+#Poisson with Observation-level random effect to account for overdispersion:
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(CumDur.Z2) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) +  (1|OLRE), family = poisson, data=etho), n=500) #model failed to converge with interaction effect. isSingular warning because of Paternity & Clutch
+
+
 plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. Looks randomly scattered
 testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
-#p= 0.288 
+#p= 0.14 
 testZeroInflation(simulationOutput) #compare expected vs observed zeros, not zero-inflated if p>0.05.
-#p = 0.08 zero inflated
+#p = 0.88 
 testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
-#p = 0.125
+#p = 0.46
 plot(simulationOutput)
 
-# Now which variables to include?
-b1 = glmer.nb(round(CumDurZ2) ~ Treatment + scale(Age, center = T, scale = T) + Treatment*scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho) # full model
-b1 = lmer(log(CumDurZ2+1) ~ Treatment + scale(Age, center = T, scale = T) + Treatment*scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho)
-b2 = glmer.nb(round(CumDurZ2) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho) # no interaction
-b2 = glmer(round(CumDurZ2) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch) + (1|Paternity) + (1|Trial), family = poisson, data=etho)
-b2 = lmer(log(CumDurZ2+1) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho)
-anova(b1,b2) # no difference, so leave out the interaction (proceed with model 2)
-# For both of these models, I get the warning about it being a singular fit. Used Ben Bolker's code below, and random effect 3 (Paternity) accounts for 0 or little variance.
+# Double check which variables to include with above simulation results:
+b1 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity) + (1|OLRE), family = poisson, data=etho) # full model
+# I get the warning about it being a singular fit. Used Ben Bolker's code below, and random effect 4 (Clutch) accounts for 0 or little variance. 
 theta <- getME(b1, "theta")
 diag.element <- getME(b1, "lower")==0
 which(theta[diag.element]<3e-5)
 
-b3 = glmer.nb(round(CumDurZ2) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch), data=etho) # no interaction, no Paternity
-b3 = glmer(round(CumDurZ2) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch) + (1|Trial), family = poisson, data=etho)
-b3 = lmer(log(CumDurZ2+1) ~ Treatment + scale(Age, center = T, scale = T) + Treatment*scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch), data=etho)
-# no longer getting warning about singular fit
-anova(b2,b3) # no difference, proceed with model 3
+b2 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho) #model fails to converge with Paternity included, and it accounts for little variance
+anova(b1,b2) # no difference, proceed with model 2
 
-b4 = glmer.nb(round(CumDurZ2) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName), data=etho) # only Fish ID random effect
-b4 = glmer(round(CumDurZ2) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) + (1|Trial), family = poisson, data=etho)
-b4 = lmer(log(CumDurZ2+1) ~ Treatment + scale(Age, center = T, scale = T) + Treatment*scale(Age, center = T, scale = T) + (1|FishName), data=etho)
-anova(b3,b4) # also no difference, so proceed with model that only has the random effect of FishName 
-library(ggpubr)
-ggqqplot(resid(b4))
-plot(resid(b4))
-hist(resid(b4))
+b3 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho) # no interaction
+anova(b2,b3) # b2 is a significantly better fit. Use b2 in rpt function.
+
 
 ### We can't use negative binomial regression in the rptR function. We can use Poisson regression if we include the observation-level random effect to remedy the overdispersion.
-etho$scale.age = scale(etho$Age, scale = T, center = T)
-etho$Trial = as.character(etho$Trial)
-etho$FishName = as.character(etho$FishName)
-rptB = rpt(log(CumDurZ2+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), datatype = "Gaussian", data=etho, grname = "FishName", nboot = 500, npermut = 500)
+
+#etho$OLREs = scale(etho$OLRE, scale = T, center = T)
+
+rptB = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100)
 rptB
 
 ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = log(CumDurZ2+1))) +
