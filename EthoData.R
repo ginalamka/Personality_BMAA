@@ -323,6 +323,9 @@ summary(rptM)
 ##CumDur.Z2
   #this is a PROPORTION, so will be a binomial family
   #find best data transformation
+# @Gina - I'm not 100% about this, but I think we should not transform proportion data if we want to use the binomial family 
+# once we transform the proportion data with log or arcsine, or potentially even scale it, it loses the binomial distribution qualities so we would not be able to use proportion/binomial models
+
 logitTransform <- function(p) { log(p/(1-p)) }
 asinTransform <- function(p) { asin(sqrt(p)) }
 hist(etho$CumDur.Z2/100)
@@ -350,9 +353,26 @@ points((etho$CumDur.Z2+1)/100, it3, col="yellow")
   #the transformation with the largest curve is the best BUT when put in the model (below), looks like arcsine is the better fit for the model
 
 d.1 <- lmer(rangeScale(logitTransform((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+# @Gina - I get the warning about these 3 models being singular. I found where Ben Bolker addresses this here: https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#singular-models-random-effect-variances-estimated-as-zero-or-correlations-estimated-as---1
+# It does have to do with overfitted models and/or the random effects accounting for no or low variance. He recommends this code for checking for small values in the variance-covariance matrix:
+theta <- getME(d.1, "theta")
+diag.element <- getME(d.1, "lower")==0
+which(theta[diag.element]<1e-5) # so maybe we drop Paternity
+
 d.2 <- lmer(rangeScale(asinTransform((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+theta <- getME(d.2, "theta")
+diag.element <- getME(d.2, "lower")==0
+which(theta[diag.element]<1e-5)
+
 d.3 <- lmer(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+theta <- getME(d.3, "theta")
+diag.element <- getME(d.3, "lower")==0
+which(theta[diag.element]<1e-5)
+
 anova(d.1, d.2, d.3)  #this looks like asin transformation is best, go with that for now
+# @Gina - I'm not sure we can use the likelihood ratio test to evaluate the best model among options that all have the same variables 
+# I think it is meant for comparing models to see which variables to include/exclude (nested models).
+# Instead, I usually see people using the diagnostic plots and the code to check the model assumptions to determine which dependent variable transformation produces the best fit model.
   #NOTE if you do rangeScale(logit, asin, log), log looks best, if you dont scale it, asin transformation is better
 
 D.2 <- glmer(rangeScale(asinTransform((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho, family = "binomial")
@@ -415,9 +435,10 @@ summary(rptD5)  #output looks like shit
 #paternity seems to fit better than FishName in lmer, but in rpt, FishName seems more important
 
 
+
 #check assumptions for distribution (binomial)
 library(DHARMa)
-simulationOutput1 <- simulateResiduals(fittedModel = glm(rangeScale(asinTransform((etho$CumDur.Z2+1)/100)) ~ Treatment + Age , family=binomial, data=etho), n=250) #250 simulations, but if want higher precision change n>1000; transform because trials does not fit a poisson distribution.
+simulationOutput1 <- simulateResiduals(fittedModel = glmer((etho$CumDur.Z2/100) ~ Treatment + Age + (1|FishName), family=binomial, data=etho), n=250) #250 simulations, but if want higher precision change n>1000; transform because trials does not fit a poisson distribution.
   #warning: In eval(family$initialize) : non-integer #successes in a binomial glm! == online looks like this warning can be ignored
 plot(simulationOutput1$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor
   #looks somewhat uniform but with variance
@@ -466,7 +487,7 @@ testUniformity(simulationOutput4)
 plot(simulationOutput4)
 
 #I *think* that since all of these seem significantly different from expected (zero inflation, non uniformity, dispersion), that suggests that the model can't be binomial and should try to fit as Gaussian
-
+# @Gina - 
 
 ########
 shapiro.test(residuals(log(etho$CumDur.Z2)))
