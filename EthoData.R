@@ -314,7 +314,7 @@ m0 <- lmer(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale
 anova(m2, m0)  #these are the same, so go with the more simple model
 
 etho$varangle <- scale(etho$VarTurnAngle, center=T, scale=T)
-rptM = rpt(Mean.Mobility ~ Treatment + Age + varangle + (1|FishName) + (1|Paternity), data = etho, grname = "FishName", datatype = "Gaussian", nboot = 1000, npermut = 500)
+rptM = rpt(Mean.Mobility ~ Treatment + Age + (1|FishName) + (1|Paternity), data = etho, grname = "FishName", datatype = "Gaussian", nboot = 1000, npermut = 500)
 summary(rptM)
 #R = .0916 , p < .001
 #fit is singular, but random effects both seem to account for significant amount of variance, since full model fits better

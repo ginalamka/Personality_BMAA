@@ -162,7 +162,7 @@ The data for turning angle are summarized from Relative turning angle (where the
 
 We could use Variance in Turning Angle to illustrate the predictability with which an individual turns, but variance is also calculated based on the mean which does not have much significance for exploration. Large numbers mean that turning angle is very different from the mean, small numbers mean the turning angle is similar to the mean.
 
-Alternatively, we could pick different variables. For one, we could say Duration in the Center is representative of exploration and Latency to enter the Center is representative of boldness. Or we could say Frequency of Zone Alterations is a measure of exploration. Although it could seem like another measure of activity, it is not very correlated with Mean Mobility (0.24). This variable does look like it varies by arena size, so we would need to account for that in some way - maybe include an offset for average body size at each age, or arena size.
+Alternatively, we could pick different variables. For one, we could say Duration in the Center is representative of exploration and Latency to enter the Center is representative of boldness. Or we could say Frequency of Zone Alterations is a measure of exploration (actually no because they could be crossing zones repeatedly in a very small amount of space). Although it could seem like another measure of activity, it is not very correlated with Mean Mobility (0.24). This variable does look like it varies by arena size, so we would need to account for that in some way - maybe include an offset for average body size at each age, or arena size.
 
 
 ```{r exploration alternatives}
@@ -171,7 +171,7 @@ ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = VarTurnAngle))
   #facet_wrap(~Treatment) +
   geom_boxplot() +
   theme_classic()
-ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = FreqZAlter)) +
+ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = CumDur.Z2/100)) +
   #facet_wrap(~Treatment) +
   geom_boxplot() +
   theme_classic()
@@ -202,9 +202,12 @@ library(lme4)
 
 # I tried binomial, poisson and negative binomial. Negative binomial and Poisson with Observation-level random effect to account for overdispersion are the only models that passed all model assumption checks.
 #Binomial:
-simulationOutput <- simulateResiduals(fittedModel = glmer.nb(round(CumDur.Z2) ~ Treatment + scale(Age, center = T, scale = T) + Treatment*scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch) + (1|Paternity), family = binomial, data=etho), n=250) 
+simulationOutput <- simulateResiduals(fittedModel = glmer(cbind(round(CumDurZ2),trial.time) ~ Treatment + scale(Age, center = T, scale = T) + Treatment*scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch) + (1|Paternity), family = binomial, data=etho), n=250) 
 #Poisson with Observation-level random effect to account for overdispersion:
-simulationOutput <- simulateResiduals(fittedModel = glmer(round(CumDur.Z2) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) +  (1|OLRE), family = poisson, data=etho), n=500) #model failed to converge with interaction effect. isSingular warning because of Paternity & Clutch
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(CumDurZ2) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) +  (1|OLRE), family = poisson, data=etho), n=500) #model failed to converge with interaction effect. isSingular warning because of Paternity & Clutch
+
+#Poisson with Observation-level random effect to account for overdispersion:
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(LatencyZ2360) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) , family = poisson, data=etho), n=500) #model failed to converge with interaction effect. isSingular warning because of Paternity & Clutch
 
 
 plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. Looks randomly scattered
@@ -217,16 +220,20 @@ testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic de
 plot(simulationOutput)
 
 # Double check which variables to include with above simulation results:
-b1 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity) + (1|OLRE), family = poisson, data=etho) # full model
-# I get the warning about it being a singular fit. Used Ben Bolker's code below, and random effect 4 (Clutch) accounts for 0 or little variance. 
+b1 = glmer(round(CumDurZ2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity) + (1|OLRE), family = poisson, data=etho) # full model
+# I get the warning about it being a singular fit. Used Ben Bolker's code below, and random effect 4 (Clutch) accounts for 0 or little variance.
+
+b1 = glmer(cbind(round(CumDurZ2),trial.time) ~ Treatment + scale(Age, center = T, scale = T) + Treatment*scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch) + (1|Paternity), family = binomial, data=etho)
+
+
 theta <- getME(b1, "theta")
 diag.element <- getME(b1, "lower")==0
 which(theta[diag.element]<3e-5)
 
-b2 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho) #model fails to converge with Paternity included, and it accounts for little variance
+b2 = glmer(round(CumDurZ2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho) #model fails to converge with Paternity included, and it accounts for little variance
 anova(b1,b2) # no difference, proceed with model 2
 
-b3 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho) # no interaction
+b3 = glmer(round(CumDurZ2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho) # no interaction
 anova(b2,b3) # b2 is a significantly better fit. Use b2 in rpt function.
 
 
@@ -234,7 +241,7 @@ anova(b2,b3) # b2 is a significantly better fit. Use b2 in rpt function.
 
 #etho$OLREs = scale(etho$OLRE, scale = T, center = T)
 
-rptB = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100) # model fails to converge with the OLRE 🤦
+rptB = rpt(round(CumDurZ2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100) # model fails to converge with the OLRE 🤦
 rptB
 
 ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = log(CumDurZ2+1))) +
