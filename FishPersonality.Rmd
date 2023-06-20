@@ -126,12 +126,17 @@ The PC loadings are too diffuse and inconsistent across time points. We will mov
 
 
 # Variables:
-1. Exploration = Angular Velocity. The relative turn angle / time difference ; degrees per second; can be + or -. Measures the speed of change in direction of movement - used to assess turn bias or circular tendency and abnormalities of behavior. NOTE - turn angle is sensitive to small movements of body points. if distance moved is very small, turn angle can get high, unrealistic values (additionally, consecutive turns can have high values). To combat this, let's scale distance moved
+1. Exploration = Angular Velocity. The relative turn angle / time difference ; degrees per second; can be + or -. Measures the speed of change in direction of movement - used to assess turn bias or circular tendency and abnormalities of behavior. NOTE - turn angle is sensitive to small movements of body points. if distance moved is very small, turn angle can get high, unrealistic values (additionally, consecutive turns can have high values). To combat this, let's scale distance moved.
+
+    - Relative turn angle is the signed angle of each turn. As such, when summary statistics are done, some of the angles cancel each other out and it is hard/confusing to interpret these numbers. Relative turn angle informs the primary direction of turns individuals make (rather than how many turns vs how straight is the path)
+    - As such, we may consider using another variable like cumulative duration in the center (see boldness)
 
 2. Activity = Mobility. The percentage of pixel change between current sample and previous sample *detected in the subject only* ; ranges from 0 - 100%. NOTE - mobility depends on size of subject only, not on arena size. small fish results in small number of pixels that change, therefore small movements results in high change
 
-3. Boldness = Cumulative duration in the center (proportion).
+3. Boldness = Cumulative duration in the center (count or proportion) OR Latency to enter the center (see exploration).
 
+
+## Exploration
 ```{r turning angle rpt}
 etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
 
@@ -187,9 +192,9 @@ ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = LatencyZ2360))
 
 
 ## Boldness
-Time spent in the middle is our measure of boldness. The variables are the proportion of time spent in the middle (out of trial time = 360 sec) or the actual number of seconds spent in the middle zone. It is difficult to find a well-fitting model family or transformation of the proportion data.
+Time spent in the middle is our measure of boldness. The variables are the proportion of time spent in the middle (out of trial time = 360 sec) or the actual number of seconds spent in the middle zone. It is difficult to find a well-fitting model family or transformation of the proportion data. Negative binomial fits well to the proportion data. A poisson model with an observation-level random effect fits well to the count data.
 
-```{r boldness}
+```{r boldness-cumulative duration in the middle}
 etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
 etho$trial.time = 360
 etho$OLRE = seq_len(nrow(etho)) #column with observation-level random effect
@@ -201,50 +206,65 @@ library(DHARMa)
 library(lme4)
 
 # I tried binomial, poisson and negative binomial. Negative binomial and Poisson with Observation-level random effect to account for overdispersion are the only models that passed all model assumption checks.
-#Binomial:
-simulationOutput <- simulateResiduals(fittedModel = glmer(cbind(round(CumDurZ2),trial.time) ~ Treatment + scale(Age, center = T, scale = T) + Treatment*scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch) + (1|Paternity), family = binomial, data=etho), n=250) 
-#Poisson with Observation-level random effect to account for overdispersion:
-simulationOutput <- simulateResiduals(fittedModel = glmer(round(CumDurZ2) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) +  (1|OLRE), family = poisson, data=etho), n=500) #model failed to converge with interaction effect. isSingular warning because of Paternity & Clutch
+#Negative Binomial:
+simulationOutput <- simulateResiduals(fittedModel = glmer.nb(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch), data=etho, control=glmerControl(optimizer="bobyqa",
+                                 optCtrl=list(maxfun=2e5))), n=250) #add optimizer because otherwise it fails to converge with interaction term
+# fit is singular with Paternity included
 
 #Poisson with Observation-level random effect to account for overdispersion:
-simulationOutput <- simulateResiduals(fittedModel = glmer(round(LatencyZ2360) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) , family = poisson, data=etho), n=500) #model failed to converge with interaction effect. isSingular warning because of Paternity & Clutch
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho), n=500) #isSingular warning because of Paternity & Clutch
 
-
-plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. Looks randomly scattered
+plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. 
 testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
-#p= 0.14 
+#p.nb= 0.19, p.pois = 0.14 
 testZeroInflation(simulationOutput) #compare expected vs observed zeros, not zero-inflated if p>0.05.
-#p = 0.88 
+#p.nb < 0.01 (10% are zeros), p.pois = 0.88  
 testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
-#p = 0.46
+#p.nb = 0.02, p.pois = 0.49
 plot(simulationOutput)
 
-# Double check which variables to include with above simulation results:
-b1 = glmer(round(CumDurZ2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity) + (1|OLRE), family = poisson, data=etho) # full model
-# I get the warning about it being a singular fit. Used Ben Bolker's code below, and random effect 4 (Clutch) accounts for 0 or little variance.
-
-b1 = glmer(cbind(round(CumDurZ2),trial.time) ~ Treatment + scale(Age, center = T, scale = T) + Treatment*scale(Age, center = T, scale = T) + (1|FishName) + (1|Clutch) + (1|Paternity), family = binomial, data=etho)
 
 
+#### Best fit is the Poisson regression on percent time in middle with the OLRE. ####
+
+
+# Double check which variables to include in accordance with above simulation results:
+b1 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity) + (1|OLRE), family = poisson, data=etho, control=glmerControl(optimizer="bobyqa", #add optimizer because otherwise it fails to converge
+                                 optCtrl=list(maxfun=2e5))) # full model
 theta <- getME(b1, "theta")
 diag.element <- getME(b1, "lower")==0
 which(theta[diag.element]<3e-5)
+#Fit is singular because of clutch and paternity
 
-b2 = glmer(round(CumDurZ2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho) #model fails to converge with Paternity included, and it accounts for little variance
-anova(b1,b2) # no difference, proceed with model 2
+b2 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho)
+anova(b1,b2) # no difference, proceed with model 2 (results did not change with or without optimizer)
 
-b3 = glmer(round(CumDurZ2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho) # no interaction
+b3 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho) # no interaction
 anova(b2,b3) # b2 is a significantly better fit. Use b2 in rpt function.
 
-
-### We can't use negative binomial regression in the rptR function. We can use Poisson regression if we include the observation-level random effect to remedy the overdispersion.
-
-#etho$OLREs = scale(etho$OLRE, scale = T, center = T)
-
-rptB = rpt(round(CumDurZ2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100) # model fails to converge with the OLRE 🤦
+#### rptR package for repeatability estimate
+rptB = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100) # model fails to converge with the OLRE 🤦
 rptB
 
-ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = log(CumDurZ2+1))) +
+
+#### MCMCglmm instead of rptR for repeatability estimate
+library(MCMCglmm)
+prior = list(R=list(R1=list(V=1,nu=0.002)), G=list(G1=list(V=1,nu=0.002))) #weak priors
+mc1 = MCMCglmm(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age, random = ~FishName, family = "poisson", data = etho,
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+plot(mc1) #all chains look good
+autocorr(mc1$Sol) #Did fixed effects converge? (<0.1)? 
+autocorr(mc1$VCV)
+repeata <- mc1$VCV[,"FishName"]/(mc1$VCV[,"FishName"]+mc1$VCV[,"units"]) #latent scale adjusted repeatability and its credible interval
+mean(repeata) # Repeatability: 0.12
+var(repeata) # 0.001
+posterior.mode(repeata) # 0.12
+HPDinterval(repeata, 0.95) # 0.06 - 0.19
+
+##### permute the data so fish behavior is random to test the significance of 0.12 repeatability value #####
+
+
+ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = round(CumDur.Z2))) +
   #facet_wrap(~Treatment) +
   geom_boxplot() +
   theme_classic()
@@ -252,5 +272,16 @@ ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = log(CumDurZ2+1
 ```
 
 
+If we need to use cumulative duration in the middle as our measure of exploration, we can instead use latency to enter the middle as our measure of boldness.
+```{r boldness-latency to enter the middle}
 
+
+#Poisson with Observation-level random effect to account for overdispersion:
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(LatencyZ2360) ~ Treatment + scale(Age, center = T, scale = T) + (1|FishName) , family = poisson, data=etho), n=500) #model failed to converge with interaction effect. isSingular warning because of Paternity & Clutch
+
+
+
+
+
+```
 
