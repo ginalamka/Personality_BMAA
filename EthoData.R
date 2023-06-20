@@ -275,6 +275,7 @@ plot(rptV, type="permut")
 
 ##Mean.Mobility
   #mobility = activity as the response var, Treatment and Age are Fixed Effects, VarTurnAngle is a covariate, and Clutch, Paternity, and FishID are random effects
+#since var turn angle isnt being used anymore, no need to include as covariate
 hist(etho$Mean.Mobility)
 qqnorm(etho$Mean.Mobility)
 qqline(etho$Mean.Mobility)
@@ -282,23 +283,23 @@ qqline(etho$Mean.Mobility)
 m1 <- lmer(Mean.Mobility ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
 summary(m1)
 
-m2 <- lmer(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale=T)+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
+m2 <- lmer(Mean.Mobility ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
 summary(m2)
 anova(m2, m1)  #m2 is better
 
-m3 <- lmer(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale=T)+ (1|FishName) + (1|Clutch) , data = etho)
+m3 <- lmer(Mean.Mobility ~ Treatment + Age + (1|FishName) + (1|Clutch) , data = etho)
 summary(m3)
-anova(m3, m2)  #m2 is better
+anova(m3, m2)  #same, so go with the simpler model, m3
 
-m4 <- lmer(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale=T)+ (1|FishName), data = etho) 
+m4 <- lmer(Mean.Mobility ~ Treatment + Age + (1|FishName), data = etho) 
 summary(m4)
 anova(m4, m2)  #m2 is better
 
-m5 <- lm(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale=T), data = etho)
+m5 <- lm(Mean.Mobility ~ Treatment + Age, data = etho)
 summary(m5)
 anova(m2, m5)  #m2 is better
 
-m6 <- lmer(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale=T) + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho) #scale is off here #lmer(Mean.Mobility ~ Treatment + Age + Treatment*Age + (1|FishName) + (1|Clutch), data = etho)
+m6 <- lmer(Mean.Mobility ~ Treatment + Age + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho) #scale is off here #lmer(Mean.Mobility ~ Treatment + Age + Treatment*Age + (1|FishName) + (1|Clutch), data = etho)
 anova(m2, m6)  #these are the same, use the more simple model, m2
 
 m7 <- lmer(Mean.Mobility ~ Treatment + Age + Treatment*Age+ (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
@@ -307,7 +308,7 @@ anova(m6, m7)  #m6 is better than m7, but m2 is still best
 m8 <- lm(Mean.Mobility ~ Treatment + Age + Treatment*Age + scale(VarTurnAngle, center=T, scale=T) , data = etho)
 anova(m8, m5) #these are the same, so use without interaction effect
 
-m9 <- lmer(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale=T) + (1|Clutch), data = etho)
+m9 <- lmer(Mean.Mobility ~ Treatment + Age + (1|Clutch), data = etho)
 anova(m9, m2) #m2 is still best
 
 anova(m1, m2, m3, m4, m5, m6, m7, m8, m9) 
@@ -319,13 +320,13 @@ m0 <- lmer(Mean.Mobility ~ Treatment + Age + scale(VarTurnAngle, center=T, scale
 anova(m2, m0)  #these are the same, so go with the more simple model
 
 etho$varangle <- scale(etho$VarTurnAngle, center=T, scale=T)
-rptM = rpt(Mean.Mobility ~ Treatment + Age + (1|FishName) + (1|Paternity), data = etho, grname = "FishName", datatype = "Gaussian", nboot = 1000, npermut = 500)
+rptM = rpt(Mean.Mobility ~ Treatment + Age + (1|FishName) + (1|Clutch), data = etho, grname = "FishName", datatype = "Gaussian", nboot = 1000, npermut = 500)
 summary(rptM)
 #R = .0916 , p < .001
 #fit is singular, but random effects both seem to account for significant amount of variance, since full model fits better
 
-theta <- getME(m0, "theta")
-diag.element <- getME(m2, "lower")==0
+theta <- getME(m3, "theta")
+diag.element <- getME(m3, "lower")==0
 which(theta[diag.element]<1e-5) #looks like all of these are important
 
 

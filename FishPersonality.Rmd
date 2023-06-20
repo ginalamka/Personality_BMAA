@@ -332,6 +332,73 @@ plot(l.rpt, type = "permut")
 
 ```
 
+
+## Activity
+Mobility is our measure of activity. This variable describes the percentage of pixel change between the current sample at the time (t) and previous sample (t-1) *this is detected in the subject only, not the full arena* (aka "activity" described by EthoVision) ; ranges from 0 - 100%. Mobility depends on the size of subject only, not on the arena size; a small fish results in a small number of pixels that change, therefore small movements may result in high change.
+
+Because we are not using variance in turning angle as a measure of exploration anymore, no need to include it as a covariate.
+
+```{r activity- mobility}
+etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
+etho$FishName = as.factor(etho$FishName)
+etho$Treatment = as.factor(etho$Treatment)
+etho$Age[which(etho$Age == 15)]<-14
+etho$Age = as.numeric(etho$Age)
+etho$scale.age = scale(etho$Age, scale = T, center = T)
+
+library(DHARMa)
+library(lme4)
+library(rptR)
+
+hist(etho$Mean.Mobility) # looks good
+
+#Gaussian
+simulationOutput <- simulateResiduals(fittedModel = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho), n=500)
+#Poisson 
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(Mean.Mobility) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), family = poisson, data=etho), n=500) 
+
+plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. 
+testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
+#p.g = 0.94 , p.p < 0.01
+testZeroInflation(simulationOutput) #compare expected vs observed zeros, not zero-inflated if p>0.05.
+#p.g = 1 , p.p = 0.79
+testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
+#p.g < 0.01 , p.p < 0.01
+
+#the log(Mean.Mobility+1) brings the uniformity p-val = 0.0445 (from 6.848e-08). Going with log
+plot(simulationOutput)
+
+m1 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho) #full model
+m2 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch), data=etho)
+anova(m1,m2) #no difference, use simpler model (m2)
+
+m3 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), data=etho)
+anova(m2,m3) #m2 is better
+
+m4 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (1|FishName) + (1|Clutch), data=etho)
+anova(m2,m4) #no difference, use simpler model (m4)
+
+m5 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (1|Clutch), data=etho) # does FishName account for significant amount of variance?
+anova(m5,m4) #m4 is better - accounts for somethin!
+
+m6 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (1|FishName), data=etho) # does Clutch account for significant amount of variance?
+anova(m4,m6) #m4 is better - accounts for somethin!
+
+
+m.rpt = rpt(Mean.Mobility ~ Treatment + scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho, grname = "FishName", nboot = 500, npermut = 500) #singular fit warning with or without Clutch
+m.rpt
+# R = 0.13 (0.07-0.18)
+# p.LRT and p.permute < 0.01
+
+plot(m.rpt, type = "permut")
+
+theta <- getME(m4, "theta")
+diag.element <- getME(m4, "lower")==0
+which(theta[diag.element]<1e-5) #looks like clutch and fishname are important
+
+
+```
+
 ## Why are repeatability values so low?
 
 ```{r repeatability by treatment group}
@@ -359,9 +426,18 @@ ggplot(etho, aes(x = as.factor(as.numeric(Age)), y = LatencyZ2360, color = Treat
   geom_boxplot() +
   theme_classic()
 
+#Mobility
+ggplot(etho, aes(x = reorder(FishName,Mean.Mobility,mean), y = log(Mean.Mobility+1), color = Treatment)) +
+  facet_wrap(~Treatment) +
+  geom_boxplot() +
+  theme_classic() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank())
+
+ggplot(etho, aes(x = as.factor(as.numeric(Age)), y = log(Mean.Mobility+1), color = Treatment)) +
+  geom_boxplot() +
+  theme_classic()
+
 ##Distribution of values look similar across groups
 ```
-
-
-
 
