@@ -250,6 +250,8 @@ rptB
 
 
 #### MCMCglmm instead of rptR for repeatability estimate
+#https://juliengamartin.github.io/wam_tuto/mcmcglmm-1.html
+#examples in the lit: https://doi.org/10.1007/s00265-019-2637-4 ; https://doi.org/10.1111/jeb.13701
 library(MCMCglmm)
 prior = list(R=list(R1=list(V=1,nu=0.002)), G=list(G1=list(V=1,nu=0.002))) #weak priors
 mc1 = MCMCglmm(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age, random = ~FishName, family = "poisson", data = etho,
@@ -264,6 +266,8 @@ posterior.mode(repeata) # 0.12
 HPDinterval(repeata, 0.95) # 0.06 - 0.19
 
 ##### permute the data so fish behavior is random to test the significance of 0.12 repeatability value #####
+
+#Kelsey, do you expect reviewers may have a problem with using both rptR and MCMCglmm for repeatability values, or should we switch to MCMCglmms for all variables?
 
 
 ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = round(CumDur.Z2))) +
@@ -440,4 +444,9 @@ ggplot(etho, aes(x = as.factor(as.numeric(Age)), y = log(Mean.Mobility+1), color
 
 ##Distribution of values look similar across groups
 ```
+
+
+Would there be a benefit to test for a behavioral syndrome here? i.e., is there a relationship among the three behavioral parameters?
+
+something to consider: will having both rptR and MCMCglmm calculations affect behav synd tests? assume it is ok since we'll test the model, not the repeatability output
 
