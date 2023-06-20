@@ -266,6 +266,11 @@ hist(asinTransform(etho$LatencyZ2360))
 hist(log((etho$LatencyZ2360+1)))
 hist(etho$LatencyZ2360)
 
+rptL = rpt(LatencyZ2360 ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho, grname = "FishName", datatype = "Poisson", nboot = 1000, npermut = 100)
+summary(rptV) 
+plot(rptV)
+plot(rptV, type="permut")
+
 
 
 ##Mean.Mobility
@@ -318,6 +323,10 @@ rptM = rpt(Mean.Mobility ~ Treatment + Age + (1|FishName) + (1|Paternity), data 
 summary(rptM)
 #R = .0916 , p < .001
 #fit is singular, but random effects both seem to account for significant amount of variance, since full model fits better
+
+theta <- getME(m0, "theta")
+diag.element <- getME(m2, "lower")==0
+which(theta[diag.element]<1e-5) #looks like all of these are important
 
 
 ##CumDur.Z2
@@ -416,7 +425,7 @@ d13 <- lmer(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|Clutc
 d23 <- lmer(rangeScale(log((etho$CumDur.Z2+1)/100)) ~ Treatment + Age + (1|Paternity), data = etho)
 anova(d3, d13, d23) #these are all the same, but paternity is the slightly better fit
 
-
+rangeScale <- function(x) { (x-min(x)) / (max(x)-min(x)) }
 etho$cumdur <- rangeScale(log((etho$CumDur.Z2+1)/100))
 etho$CUMDUR <- rangeScale(asinTransform((etho$CumDur.Z2+1)/100))
 rptD1 = rpt(cumdur ~ Treatment + Age + (1|Paternity), data = etho, grname = "Paternity", datatype = "Gaussian", nboot = 100, npermut = 100)
@@ -434,6 +443,14 @@ summary(rptD5)  #output looks like shit
 #NOTE - rptD wont work if datatype = "Proportion" for logged duration or arcsine duraton, so fit it to Gaussian
 #paternity seems to fit better than FishName in lmer, but in rpt, FishName seems more important
 
+etho2$scale.age = scale(etho$Age, scale = T, center = T)
+hold <- matrix(360, nrow=nrow(etho), ncol=1)
+etho2 <- cbind(etho,hold)
+etho$cumdur <- etho$CumDur.Z2/100
+etho2$cumdur = round(etho2$CumDurZ2)
+rptD6 = rpt(cbind(cumdur,hold) ~ Treatment + scale.age + (1|FishName), data = etho2, grname = "FishName", datatype = "Proportion", nboot = 100, npermut = 100)
+summary(rptD6)  
+plot(rptD6, type="permut")
 
 
 #check assumptions for distribution (binomial)
