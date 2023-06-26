@@ -276,6 +276,40 @@ posterior.mode(repeata) # 0.12
 HPDinterval(repeata, 0.95) # 0.06 - 0.19
 
 ##### permute the data so fish behavior is random to test the significance of 0.12 repeatability value #####
+results = rep(NA, 10) 
+for(i in 1:10){
+  tmp0 = data.frame("FishName" = etho$FishName[which(etho$Treatment=="0")], 
+                    "Treatment"=etho$Treatment[which(etho$Treatment=="0")], 
+                    "scale.age" = etho$scale.age[which(etho$Treatment=="0")], 
+                    "CumDur.Z2" = sample(etho$CumDur.Z2[which(etho$Treatment=="0")],replace=F))
+  tmp5 = data.frame("FishName" = etho$FishName[which(etho$Treatment=="5")], 
+                    "Treatment"=etho$Treatment[which(etho$Treatment=="5")], 
+                    "scale.age" = etho$scale.age[which(etho$Treatment=="5")],
+                    "CumDur.Z2" = sample(etho$CumDur.Z2[which(etho$Treatment=="5")],replace=F))
+  tmp25 = data.frame("FishName" = etho$FishName[which(etho$Treatment=="25")], 
+                     "Treatment"=etho$Treatment[which(etho$Treatment=="25")], 
+                     "scale.age" = etho$scale.age[which(etho$Treatment=="25")],
+                     "CumDur.Z2" = sample(etho$CumDur.Z2[which(etho$Treatment=="25")],replace=F))
+  #tmp = rbind(tmp0,tmp5,tmp25)
+  tmp = data.frame("FishName" = etho$FishName,
+                   "Treatment" = etho$Treatment,
+                   "scale.age" = etho$scale.age,
+                   "CumDur.Z2" = sample(etho$CumDur.Z2, replace = F))
+  m <- MCMCglmm(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age, random = ~FishName, family = "poisson", data = tmp,
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+  
+  if(i==1){
+    rpt <- m$VCV[,"FishName"]/(m$VCV[,"FishName"]+m$VCV[,"units"]) #latent scale adjusted repeatability and its credible interval from the model
+  } else{
+    rpt = c(rpt, m$VCV[,"FishName"]/(m$VCV[,"FishName"]+m$VCV[,"units"])) #building by row all of the posterior estimates from each iteration of the permutation
+  }
+  results[i] = mean(rpt) #average repeatability estimate from each iteration of the permutation
+}
+
+hist(results) # average repeatability estimate from each iteration of the permutation, which randomizes choices within reversals
+abline(v=0.12,col="red")
+sum(results > 0.12)/10 # probability the repeatability estimate from our actual data is greater than the repeatability estimates generated from the permutations which randomized the data
+
 
 #Kelsey, do you expect reviewers may have a problem with using both rptR and MCMCglmm for repeatability values, or should we switch to MCMCglmms for all variables?
 
@@ -286,7 +320,6 @@ ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = round(CumDur.Z
   theme_classic()
 
 ```
-
 
 If we need to use cumulative duration in the middle as our measure of exploration, we can instead use latency to enter the middle as our measure of boldness.
 ```{r boldness-latency to enter the middle}
@@ -346,6 +379,9 @@ l.rpt
 plot(l.rpt, type = "permut")
 
 ```
+### Latency and survival models
+It is straightforward to extract the random effect variance from the output of a coxme survival model. However, according to this post: https://stat.ethz.ch/pipermail/r-sig-mixed-models/2015q3/023871.html, there is no residual variance in Cox survival models.
+
 
 
 ## Activity
