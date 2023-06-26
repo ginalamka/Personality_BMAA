@@ -23,6 +23,7 @@ We first need to determine the relationships among the variables recorded by Eth
 
 ```{r variables}
 etho = read.csv(url("https://raw.githubusercontent.com/ginalamka/Personality_BMAA/main/EthoData_updated.csv?token=GHSAT0AAAAAACB372QA37AYRBA76MHRCWXSZD7LT4Q"), header=T, sep=",", stringsAsFactors=F)
+etho$Age[which(etho$Age == 15)]<-14
 
 ##How correlated are the variables?
 #Create dataframe with just numeric/integer values
@@ -39,25 +40,65 @@ cor = rcorr(as.matrix(etho.corr))
 corrplot(cor$r,type = "upper",p.mat=cor$P, sig.level=0.05, insig = "blank",diag=F) #lots of variables correlated to differing degrees
 
 
+```
 
 
+# PCA
+```{r pca}
 ##Do correlated variables load on PCs to suggest personality axes?
 #calc principal components
-pca <- prcomp(etho.corr, scale=TRUE)
+# pca <- prcomp(etho.corr, scale=TRUE)
+# 
+# #need to reverse the signs
+# pca$rotation <- -1*pca$rotation
+# 
+# #calc total variance explained by each princ component
+# pca$sdev^2/sum(pca$sdev^2) # first 5 PCs account for 72ish % of variance in data
+# 
+# #display principal components
+# loadings = data.frame(pca$rotation[1:25,1:5]) #all 25 variables, first 5 PCs
+# loadings = loadings[order(-abs(loadings$PC1), -abs(loadings$PC2), -abs(loadings$PC3), -abs(loadings$PC4), -abs(loadings$PC5)),]
+# 
+# #create biplot to visualize
+# biplot(pca$x[, 1:2], pca$rotation[, 1:2], cex=1)
 
-#need to reverse the signs
-pca$rotation <- -1*pca$rotation
-
-#calc total variance explained by each princ component
-pca$sdev^2/sum(pca$sdev^2) # first 5 PCs account for 72ish % of variance in data
-
-#display principal components
-loadings = data.frame(pca$rotation[1:25,1:5]) #all 25 variables, first 5 PCs
-loadings = loadings[order(-abs(loadings$PC1), -abs(loadings$PC2), -abs(loadings$PC3), -abs(loadings$PC4), -abs(loadings$PC5)),]
-
-#create biplot to visualize
-biplot(pca$x[, 1:2], pca$rotation[, 1:2], cex=1)
-
+# for(i in unique(etho$Age)){
+#   temp = etho[etho$Age==i,]
+#   temp$MeanTimeZ2 = as.numeric(temp$MeanTimeZ2)
+#   temp$LatencyZ2 = as.numeric(temp$LatencyZ2)
+#   temp=temp[-which(is.na(temp$MeanTimeZ2)),]
+#   pca_i <- prcomp(temp[,8:32], scale=TRUE)
+#   pca_i$rotation <- -1*pca_i$rotation
+#   var = data.frame(pca_i$sdev^2/sum(pca_i$sdev^2))
+#   rot = data.frame(pca_i$rotation[1:25,1])
+#   colnames(var) = i
+#   colnames(rot) = i
+#   if(i==21){
+#     vars = var
+#     rots = rot
+#   } else{
+#     vars = cbind(vars, var)
+#     rots = cbind(rots, rot)
+#   }
+# }
+# #Range of variance accounted for by PC1 is 25-31%
+# #Range of PC2 is 16-25%
+# vars$PC = row.names(vars)
+# scree.plot = gather(vars, age, value, "21":"189",factor_key =F)
+# ggplot(scree.plot, aes(x = as.numeric(PC), y = (value)*100, color = as.factor(age))) + 
+#   theme_bw() +
+#   geom_line() +
+#   geom_hline(yintercept=4) #the amount of variance each variable would contribute if all contributed the same amount: 1/25*100
+# 
+# 
+# ###do PC loadings stay the same across ages? Spaghetti plot:
+# library(tidyr)
+# library(ggplot2)
+# rots$variables = row.names(rots)
+# plot.data = gather(rots, age, value, "21":"189", factor_key = F)
+# ggplot(plot.data, aes(x = as.numeric(age), y = abs(value), color = variables)) +
+#   geom_line() +
+#   theme_bw()
 ```
 
 ## Interpreting the loadings (From http://strata.uga.edu/8370/lecturenotes/principalComponents.html): 
@@ -74,54 +115,22 @@ Large, negative loadings: CumDur.Z1, CumDurZ1
 Large, positive loadings: CumDur.Z2, CumDurZ2, MeanTimeZ2, MeanTimeZ2Zero, FreqZ2
 
 
-```{r variables by age}
-#### Do PCAs for each age
-#keep track of variance and loadings for each PC at each age with data frame
-#Age categories: 21  49  77  14 105  133 161 189
-etho$Age[which(etho$Age == 15)]<-14
-
-for(i in unique(etho$Age)){
-  temp = etho[etho$Age==i,]
-  temp$MeanTimeZ2 = as.numeric(temp$MeanTimeZ2)
-  temp$LatencyZ2 = as.numeric(temp$LatencyZ2)
-  temp=temp[-which(is.na(temp$MeanTimeZ2)),]
-  pca_i <- prcomp(temp[,8:32], scale=TRUE)
-  pca_i$rotation <- -1*pca_i$rotation
-  var = data.frame(pca_i$sdev^2/sum(pca_i$sdev^2))
-  rot = data.frame(pca_i$rotation[1:25,1])
-  colnames(var) = i
-  colnames(rot) = i
-  if(i==21){
-    vars = var
-    rots = rot
-  } else{
-    vars = cbind(vars, var)
-    rots = cbind(rots, rot)
-  }
-}
-#Range of variance accounted for by PC1 is 25-31%
-#Range of PC2 is 16-25%
-vars$PC = row.names(vars)
-scree.plot = gather(vars, age, value, "21":"189",factor_key =F)
-ggplot(scree.plot, aes(x = as.numeric(PC), y = (value)*100, color = as.factor(age))) + 
-  theme_bw() +
-  geom_line() +
-  geom_hline(yintercept=4) #the amount of variance each variable would contribute if all contributed the same amount: 1/25*100
-
-
-###do PC loadings stay the same across ages? Spaghetti plot:
-library(tidyr)
-library(ggplot2)
-rots$variables = row.names(rots)
-plot.data = gather(rots, age, value, "21":"189", factor_key = F)
-ggplot(plot.data, aes(x = as.numeric(age), y = abs(value), color = variables)) +
-  geom_line() +
-  theme_bw()
-
-```
-
 ## PC conclusions
 The PC loadings are too diffuse and inconsistent across time points. We will move forward with candidate variables for 3 personality traits, chosen based on the correlation matrix.
+
+
+```{r variables by age}
+
+etho$Age[which(etho$Age == 15)]<-14
+
+#### Variables that relate to arena size change with age
+boxplot(TotDist ~ Age, data = etho)
+boxplot(log(MeanMeander+1) ~ Age, data = etho)
+
+
+
+
+```
 
 
 
@@ -133,7 +142,7 @@ The PC loadings are too diffuse and inconsistent across time points. We will mov
 
 2. Activity = Mobility. The percentage of pixel change between current sample and previous sample *detected in the subject only* ; ranges from 0 - 100%. NOTE - mobility depends on size of subject only, not on arena size. small fish results in small number of pixels that change, therefore small movements results in high change
 
-3. Boldness = Cumulative duration in the center (count or proportion) OR Latency to enter the center (see exploration).
+3. Boldness = Cumulative duration in the center (count or percent) OR Latency to enter the center (see exploration).
 
 
 # Repeatability Results
@@ -240,6 +249,7 @@ which(theta[diag.element]<3e-5)
 
 b2 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho)
 anova(b1,b2) # no difference, proceed with model 2 (results did not change with or without optimizer)
+VarCorr(b2) #Random effects only
 
 b3 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho) # no interaction
 anova(b2,b3) # b2 is a significantly better fit. Use b2 in rpt function.
@@ -316,6 +326,7 @@ plot(simulationOutput)
 l1 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho) #full model
 l2 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch), data=etho)
 anova(l1,l2) #no difference, use simpler model (l2)
+VarCorr(l2) #Random effects and residual variance
 
 l3 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), data=etho)
 anova(l2,l3) #l2 is better
@@ -389,7 +400,7 @@ m6 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (1|FishName), data=etho
 anova(m4,m6) #m4 is better - accounts for somethin!
 
 
-m.rpt = rpt(Mean.Mobility ~ Treatment + scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho, grname = "FishName", nboot = 500, npermut = 500) #singular fit warning with or without Clutch
+m.rpt = rpt(Mean.Mobility ~ Treatment + scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho, grname = c("FishName","Clutch"), nboot = 500, npermut = 500) #singular fit warning with or without Clutch
 m.rpt
 # R = 0.13 (0.07-0.18)
 # p.LRT and p.permute < 0.01
