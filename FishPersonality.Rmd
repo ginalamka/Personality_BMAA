@@ -385,7 +385,7 @@ It is straightforward to extract the random effect variance from the output of a
 
 
 ## Activity
-Mobility is our measure of activity. This variable describes the percentage of pixel change between the current sample at the time (t) and previous sample (t-1) *this is detected in the subject only, not the full arena* (aka "activity" described by EthoVision) ; ranges from 0 - 100%. Mobility depends on the size of subject only, not on the arena size; a small fish results in a small number of pixels that change, therefore small movements may result in high change.
+Mobility is our measure of activity. This variable describes the percentage of pixel change between the current sample at the time (t) and previous sample (t-1) *this is detected in the subject only, not the full arena* (full arena pixel change aka "activity" described by EthoVision) ; ranges from 0 - 100%. Mobility depends on the size of subject only, not on the arena size; a small fish results in a small number of pixels that change, therefore small movements may result in high change.
 
 Because we are not using variance in turning angle as a measure of exploration anymore, no need to include it as a covariate.
 
