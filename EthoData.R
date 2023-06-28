@@ -19,12 +19,32 @@ etho=read.table("EthoData_updated.csv",header=TRUE, sep=",")  #see changes in "u
 #change the indv tested on day 15 to day 14
 for(i in 1:nrow(etho)){
   if(etho[i,3]==15){
-    etho[i,1]=14
+    etho[i,3]=14
   }
 }   
 
 #set Treatment as a factor
 etho$Treatment = as.factor(etho$Treatment)
+
+#put arena size in the dataframe (mm diameter)
+arena = matrix(nrow = nrow(etho), ncol = 1)
+for(j in 1:nrow(etho)){
+  if(etho[j,3]<=49){
+    arena[j,1] = 58
+  }else if(etho[j,3]==77){
+    arena[j,1] = 89
+  }else{
+    arena[j,1] = 138
+  }
+}
+
+#put arena area in the dataframe (mm^2)
+area = matrix(nrow = nrow(etho), ncol = 1)
+for(l in 1:nrow(etho)){
+  area[l,1] = 3.14 * (arena[l,1]/2)^2
+}
+
+etho = cbind(etho,arena, area)
 
 #for now, keep age as a number since age might have an interaction effect with treatment?
 
@@ -505,7 +525,100 @@ testUniformity(simulationOutput4)
 plot(simulationOutput4)
 
 #I *think* that since all of these seem significantly different from expected (zero inflation, non uniformity, dispersion), that suggests that the model can't be binomial and should try to fit as Gaussian
-# @Gina - 
+
+
+#######
+#Checking other approaches after meeting with Jonathan 
+logitTransform <- function(p) { log(p/(1-p)) }
+asinTransform <- function(p) { asin(sqrt(p)) }
+hist(logitTransform((etho$CumDur.Z2+1)/100))
+
+plot(etho$TotDist, etho$arena)
+plot(etho$TotDist, etho$area)
+#note, arena = diameter
+
+etho$rat = etho$TotDist/etho$arena
+hist(rat)
+hist(log(rat+1))
+hist(asinTransform(rat))
+
+etho$rat2 = etho$TotDist/etho$area
+hist(rat2)
+hist(log(rat2+1))
+hist(asinTransform(rat2))
+
+library(DHARMa)
+library(lme4)
+etho$scale.age = scale(etho$Age, scale = T, center = T)
+etho$FishName = as.factor(etho$FishName)
+etho$Treatment = as.factor(etho$Treatment)
+etho$scale.rat = scale(etho$rat, scale = T, center = T)+1
+etho$scale.rat2 = scale(etho$rat2, scale = T, center = T)+1
+hist(etho$TotDist)
+etho$scale.totdis = scale(etho$TotDist, scale = T, center = T)+1
+
+#Poisson 
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(log(TotDist+1)) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), family = poisson, data=etho), n=500) 
+#Negative binomial
+simulationOutput <- simulateResiduals(fittedModel = glmer.nb(round(log(TotDist+1)) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho), n=500)
+#Gaussian
+simulationOutput <- simulateResiduals(fittedModel = lmer(log(TotDist+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho), n=500)
+
+#I tried rat, rat2, scale.rat, and scale.rat2 in all three families. those that worked were gaus(rat), pois(rat2), negbi(scale.rat2), gaus(rat2) -- none really looked good
+#also checked out TotDist and scale.totdis and neither of those look great either
+
+plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. 
+testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
+#p.rgaus= 0.66, p.2rpois = 0.28, p.scaler2negbi = 0.92, p.r2gaus = 0.74         
+#p.totdis.pois < 0.01 , p.totdis.negbi < 0.01, p.totdis.gaus = 0.74
+testZeroInflation(simulationOutput) #compare expected vs observed zeros, not zero-inflated if p>0.05.
+#p.rgaus= 1, p.2rpois < 0.01, p.scaler2negbi = 0.28, p.r2gaus = 1      
+#p.totdis.pois = 1, p.totdis.negbi < 0.01, p.totdis.gaus = 1
+testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
+#p.rgaus< 0.01, p.2rpois < 0.01, p.scaler2negbi = 0.04, p.r2gaus < 0.01     
+#p.totdis.pois < 0.01, p.totdis.negbi < 0.01, p.totdis.gaus < 0.01
+plot(simulationOutput)
+
+#not convinced this is better
+  #*maybeee* log(totdis+1) would be ok but still not fully convinced
+
+t1 <- lmer(log(TotDist+1) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity) + log(arena), data = etho) #arena as offset
+summary(t1) 
+anova(t1)
+
+t2 <- lmer(log(TotDist+1) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity) + log(area), data = etho) #area as offset
+summary(t2) 
+anova(t1,t2)
+
+t3 <- lmer(log(TotDist+1) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity) , data = etho) 
+summary(t3) #is singular
+anova(t1,t2, t3) #t1 is better, t1 and t2 are same
+
+t4 <- lmer(log(TotDist+1) ~ Treatment + Age + (1|FishName) + (1|Clutch) + log(arena), data = etho) #arena as offset
+summary(t4) 
+anova(t4, t1) #same, go with simpler t4
+
+t5 <- lmer(log(TotDist+1) ~ Treatment + Age + (1|FishName)  + log(arena), data = etho) #arena as offset
+summary(t5) 
+anova(t5, t4) #t4 better
+
+t6 <- lmer(log(TotDist+1) ~ Treatment + Age + (1|Clutch)  + log(arena), data = etho) #arena as offset
+summary(t6) 
+anova(t6, t4) #t4 better
+
+t7 <- lmer(log(TotDist+1) ~ Treatment + Age + (1|FishName) + (1|Clutch) + log(area), data = etho) #arena as offset
+summary(t7) 
+anova(t4, t7) #same, go with t4
+
+rptT = rpt(log(TotDist+1) ~ Treatment + Age + (1|FishName) + (1|Clutch) + log(area), data = etho, grname = "FishName", datatype = "Gaussian", nboot = 1000, npermut = 100)
+summary(rptT) #is singular
+plot(rptT)
+plot(rptT, type="permut")
+#R = 0.0481 , p = 0.004 
+#fit is singular, but random effects all seem to account for a significant amount of variance, since full model fits better
+
+
+
 
 ########
 shapiro.test(residuals(log(etho$CumDur.Z2)))
