@@ -538,8 +538,8 @@ plot(etho$TotDist, etho$area)
 #note, arena = diameter
 
 etho$rat = etho$TotDist/etho$arena
-hist(rat)
-hist(log(rat+1))
+hist(etho$rat)
+hist(log(etho$rat+1))
 hist(asinTransform(rat))
 
 etho$rat2 = etho$TotDist/etho$area

@@ -324,9 +324,9 @@ permut = rbind(permut.results, permut.bytrt)
 
 library(ggplot2)
 library(ggbreak)
-p <- ggplot(permut, aes(x = Repeatability)) +
+p <- ggplot(permut.bytrt, aes(x = Repeatability)) +
   geom_histogram(binwidth = 0.0001)+
-  facet_wrap(~type)+
+  #facet_wrap(~type)+
   geom_vline(xintercept = 0.12, color = "red") +
   theme_classic() 
 p+scale_x_break(c(0.0021,0.12), scales = "free", ticklabels = 0.12)
