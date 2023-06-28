@@ -311,9 +311,27 @@ hist(results) # average repeatability estimate from each iteration of the permut
 abline(v=0.12,col="red")
 sum(results > 0.12)/1000 # probability the repeatability estimate from our actual data is greater than the repeatability estimates generated from the permutations which randomized the data
 
+permut.results = results #rbind line hashtagged out in above permutations
+permut.bytrt = results #line 295-298 hashtagged out in above permutations
 
-#Kelsey, do you expect reviewers may have a problem with using both rptR and MCMCglmm for repeatability values, or should we switch to MCMCglmms for all variables?
+permut.results = data.frame(permut.results)
+colnames(permut.results) = "Repeatability"
+permut.bytrt = data.frame(permut.bytrt)
+colnames(permut.bytrt) = "Repeatability"
+permut.results$type = "combined"
+permut.bytrt$type = "by treatment"
+permut = rbind(permut.results, permut.bytrt)
 
+library(ggplot2)
+library(ggbreak)
+p <- ggplot(permut, aes(x = Repeatability)) +
+  geom_histogram(binwidth = 0.0001)+
+  facet_wrap(~type)+
+  geom_vline(xintercept = 0.12, color = "red") +
+  theme_classic() 
+p+scale_x_break(c(0.0021,0.12), scales = "free", ticklabels = 0.12)
+## I cannot get this plot to look how I want it to. The point is that no matter whether we permute across all data or permute data within treatment, the observed repeatability value is way larger.
+  
 
 ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = round(CumDur.Z2))) +
   #facet_wrap(~Treatment) +
