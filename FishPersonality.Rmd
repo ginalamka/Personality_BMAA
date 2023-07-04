@@ -512,10 +512,6 @@ ggplot(etho, aes(x = as.factor(as.numeric(Age)), y = log(Mean.Mobility+1), color
 ```
 
 
-Would there be a benefit to test for a behavioral syndrome here? i.e., is there a relationship among the three behavioral parameters?
-
-something to consider: will having both rptR and MCMCglmm calculations affect behav synd tests? assume it is ok since we'll test the model, not the repeatability output
-
 
 ## Behavioral Syndromes
 Using the tutorial/supplemental material from Houslay & Wilson 2017: Avoiding the misuse of BLUP in behavioral ecology https://tomhouslay.files.wordpress.com/2017/02/indivvar_mv_tutorial_mcmcglmm.pdf
@@ -558,7 +554,7 @@ rpt.mob <- mlt.var$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"]/(    #
 mlt.var$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"] + 
 mlt.var$VCV[,"traitMean.Mobility:traitMean.Mobility.units"]   #between individual variation + Residual variation
 )
-mean(rpt.mob) # 0.16
+mean(rpt.mob) # 0.16 (higher than rpt)
 HPDinterval(rpt.mob) # 0.11-0.21
 plot(rpt.mob)
 
@@ -567,7 +563,7 @@ rpt.dur <- mlt.var$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"]/(    # between
 mlt.var$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"] + 
 mlt.var$VCV[,"traitCumDur.Z2:traitCumDur.Z2.units"]   #between individual variation + Residual variation
 )
-mean(rpt.dur) # 0.12
+mean(rpt.dur) # 0.12 (the same as MCMCglmm above)
 HPDinterval(rpt.dur) # 0.06-0.18
 plot(rpt.dur)
 
@@ -576,7 +572,7 @@ rpt.lat <- mlt.var$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"]/(    # b
 mlt.var$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"] + 
 mlt.var$VCV[,"traitLatencyZ2360:traitLatencyZ2360.units"]   #between individual variation + Residual variation
 )
-mean(rpt.lat) # 0.11
+mean(rpt.lat) # 0.11 (higher than rpt)
 HPDinterval(rpt.lat) # 0.07-0.16
 plot(rpt.lat)
 
@@ -633,5 +629,5 @@ ggplot(df_cors, aes(x = Traits, y = Estimate)) +
 
 ```
 
-
+Boldness and exploration are negatively correlated, but that has to do with the fact that boldness is quantified as a latency. More exploratory individuals (spent more time in the center), had lower latencies to enter the center (i.e. more bold). Similarly, more active individuals had shorter latencies to enter the center. 
 
