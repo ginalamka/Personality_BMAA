@@ -516,3 +516,122 @@ Would there be a benefit to test for a behavioral syndrome here? i.e., is there 
 
 something to consider: will having both rptR and MCMCglmm calculations affect behav synd tests? assume it is ok since we'll test the model, not the repeatability output
 
+
+## Behavioral Syndromes
+Using the tutorial/supplemental material from Houslay & Wilson 2017: Avoiding the misuse of BLUP in behavioral ecology https://tomhouslay.files.wordpress.com/2017/02/indivvar_mv_tutorial_mcmcglmm.pdf
+```{r behav syndrome}
+etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
+etho$FishName = as.factor(etho$FishName)
+etho$Treatment = as.factor(etho$Treatment)
+etho$Age[which(etho$Age == 15)]<-14
+etho$Age = as.numeric(etho$Age)
+etho$scale.age = scale(etho$Age, scale = T, center = T)
+
+library(DHARMa)
+
+#uninformative prior for a model with 3 DVs, one random effect and two fixed effects
+prior_mltvar = list(R = list(V = diag(3), nu = 1.002),
+            G = list(G1 = list(V = diag(3), nu = 3,
+            alpha.mu = rep(0,3),
+            alpha.V = diag(25^2,3,3))))
+
+#multivariate model for our 3 variables (Mean.Mobility, round(CumDur.Z2), log(LatencyZ2360+1)
+mlt.var = MCMCglmm(cbind(Mean.Mobility, round(CumDur.Z2), log(LatencyZ2360+1)) ~ trait-1 +
+            trait:scale.age +
+            trait:Treatment,
+            random =~ us(trait):FishName,
+            rcov =~ us(trait):units,
+            family = c("gaussian","poisson","gaussian"),
+            prior = prior_mltvar,
+            nitt=4200,
+            burnin=200,
+            thin=10,
+            verbose = TRUE,
+            data = etho)
+
+plot(mlt.var) #clearly some autocorrelation, so need to run more iterations still, but so far all looks pretty good
+summary(mlt.var) # G-structure is DV variance and co-variances
+
+# Checking that repeatability estimates are similar:
+## Mean.Mobility
+rpt.mob <- mlt.var$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"]/(    # between individual variation
+mlt.var$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"] + 
+mlt.var$VCV[,"traitMean.Mobility:traitMean.Mobility.units"]   #between individual variation + Residual variation
+)
+mean(rpt.mob) # 0.16
+HPDinterval(rpt.mob) # 0.11-0.21
+plot(rpt.mob)
+
+## CumDur.Z2
+rpt.dur <- mlt.var$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"]/(    # between individual variation
+mlt.var$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"] + 
+mlt.var$VCV[,"traitCumDur.Z2:traitCumDur.Z2.units"]   #between individual variation + Residual variation
+)
+mean(rpt.dur) # 0.12
+HPDinterval(rpt.dur) # 0.06-0.18
+plot(rpt.dur)
+
+## LatencyZ2360
+rpt.lat <- mlt.var$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"]/(    # between individual variation
+mlt.var$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"] + 
+mlt.var$VCV[,"traitLatencyZ2360:traitLatencyZ2360.units"]   #between individual variation + Residual variation
+)
+mean(rpt.lat) # 0.11
+HPDinterval(rpt.lat) # 0.07-0.16
+plot(rpt.lat)
+
+
+# Correlations between 2 traits
+## Mobility/Duration
+cor_MobDur <- mlt.var$VCV[,"traitMean.Mobility:traitCumDur.Z2.FishName"]/
+(sqrt(mlt.var$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"])*
+sqrt(mlt.var$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"]))
+mean(cor_MobDur) # 0.09
+HPDinterval(cor_MobDur) # -0.23-0.40 ...crosses zero so non-significant correlation
+plot(cor_MobDur)
+
+## Mobility/Latency
+cor_MobLat <- mlt.var$VCV[,"traitMean.Mobility:traitLatencyZ2360.FishName"]/
+(sqrt(mlt.var$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"])*
+sqrt(mlt.var$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"]))
+mean(cor_MobLat) # -0.76
+HPDinterval(cor_MobLat) # -0.94 - -0.59 ...does NOT cross zero, so significant correlation
+plot(cor_MobLat)
+
+## Latency/Duration
+cor_LatDur <- mlt.var$VCV[,"traitLatencyZ2360:traitCumDur.Z2.FishName"]/
+(sqrt(mlt.var$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"])*
+sqrt(mlt.var$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"]))
+mean(cor_LatDur) # -0.36
+HPDinterval(cor_LatDur) # -0.67 - -0.11 ...does NOT cross zero, so significant correlation
+plot(cor_LatDur)
+
+
+# Visualizing
+## Correlation plot
+df_cors <- data.frame(Traits = c("Activity,Exploration",
+                                 "Activity,Boldness",
+                                 "Boldness, Exploration"),
+                      Estimate = c(mean(cor_MobDur),
+                                   mean(cor_MobLat),
+                                   mean(cor_LatDur)),
+                      Lower = c(HPDinterval(cor_MobDur)[,"lower"],
+                                HPDinterval(cor_MobLat)[,"lower"],
+                                HPDinterval(cor_LatDur)[,"lower"]),
+                      Upper = c(HPDinterval(cor_MobDur)[,"upper"],
+                                HPDinterval(cor_MobLat)[,"upper"],
+                                HPDinterval(cor_LatDur)[,"upper"]))
+
+ggplot(df_cors, aes(x = Traits, y = Estimate)) +
+       geom_pointrange(aes(ymin = Lower, ymax = Upper)) +
+       geom_hline(yintercept = 0, linetype = "dotted", alpha = 0.3) +
+       scale_x_discrete(limits = c("Activity,Exploration","Activity,Boldness","Boldness, Exploration")) +
+       labs(x = "Trait combinations",y = "Correlation (Estimate +/- 95% CIs)") +
+       ylim(-1,1) + coord_flip() +
+       theme_classic()
+
+
+```
+
+
+
