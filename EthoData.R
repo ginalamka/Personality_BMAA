@@ -12,6 +12,9 @@
 
 #WILL NEED TO REMOVE: look into fish with * by their names!
 #QC - check into Lupin, MantisShrimp, Nikki
+
+#changes in embryo data: 
+  #indv with # for an ID are given unique numbers rather than all being 1 or 2
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/2023_Etho,Embryo,Spinning/Personality_BMAA") #set working directory
 etho=read.table("EthoData_updated.csv",header=TRUE, sep=",")  #see changes in "updated" dataset above
@@ -208,7 +211,9 @@ library(stargazer)
 library(lmerTest)
 library(lmtest)
 library(rptR)
+library(DHARMa)
 
+{
 ##VarTurnAngle
 hist(log(etho$VarTurnAngle))
 hist(etho$VarTurnAngle)
@@ -558,9 +563,9 @@ hist(etho$TotDist)
 etho$scale.totdis = scale(etho$TotDist, scale = T, center = T)+1
 
 #Poisson 
-simulationOutput <- simulateResiduals(fittedModel = glmer(round(log(TotDist+1)) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), family = poisson, data=etho), n=500) 
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(TotDist) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity) + offset(log(arena)), family = poisson, data=etho), n=500) 
 #Negative binomial
-simulationOutput <- simulateResiduals(fittedModel = glmer.nb(round(log(TotDist+1)) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho), n=500)
+simulationOutput <- simulateResiduals(fittedModel = glmer.nb(round(TotDist) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity) + offset(log(arena)), data=etho), n=500)
 #Gaussian
 simulationOutput <- simulateResiduals(fittedModel = lmer(log(TotDist+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho), n=500)
 
@@ -582,7 +587,9 @@ plot(simulationOutput)
 #not convinced this is better
   #*maybeee* log(totdis+1) would be ok but still not fully convinced
 
-t1 <- lmer(log(TotDist+1) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity) + log(arena), data = etho) #arena as offset
+
+
+t1 <- glmer(round(TotDist) ~ Treatment + scale.age + (1|FishName) + (1|Clutch) + (1|Paternity) + offset(log(arena)), data = etho, family = "poisson") #arena as offset
 summary(t1) 
 anova(t1)
 
@@ -617,7 +624,156 @@ plot(rptT, type="permut")
 #R = 0.0481 , p = 0.004 
 #fit is singular, but random effects all seem to account for a significant amount of variance, since full model fits better
 
+#we are going to proceed without the total distance (6/28/23)
+}
 
+###Step 5: Determine if we want to include embryo data here
+setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/2023_Etho,Embryo,Spinning/Personality_BMAA") #set working directory
+bby=read.table("BMAA_EmbryoData_updated.csv",header=TRUE, sep=",")  #BMAA_EmbryoData_Raw2023
+#458 datapoints total.. 245 indvs , 213 from another experiment (note other experiment has additional treatments!)
+#up to this point, indv are treated all the same, except in daniscope (to get these values) indvs were recorded individually while non indvs were recorded as a group (should not change results)
+#therefore, should probably include all embryos from control, 5, 25 treatments
+
+not = bby[bby[,13]=="n",,drop=F]  #32 in control, 59 in 5, 37 in 25
+indv = bby[bby[,13]=="y",,drop=F]
+bby = indv
+
+rm = bby[bby[,3]=="125"|bby[,3]=="625",,drop=F]
+'%NOTin%' <- Negate(`%in%`)
+duced = bby[which(bby[,14]%NOTin%rm[,14]),,drop=F]
+table(duced[,3])
+bby=duced
+
+head(bby)
+str(bby)
+
+#set Treatment as a factor
+bby$TreatmentFactor = as.factor(bby$TreatmentFactor)
+
+hist(bby$Mean_Burst_Activity_...)  #this is the % of trial time that embryo was active (proportion!)
+hist(bby$Mean_Burst_Count)
+plot(bby$Mean_Burst_Count.Minute~bby$Mean_Burst_Count)  #both are the same, since each trial was 60s
+hist(bby$Mean_Burst_Duration_.s.)  #hella zero inflated
+plot(bby$Mean_Inactivity_...~bby$Mean_Burst_Activity_...)  #both are the same, but inversely related since high activity means low inactivity
+plot(bby$Mean_Inactivity_Duration_.s.~bby$Mean_Burst_Duration_.s.)  #these are not the same! consider the differences of each
+hist(bby$Mean_Inactivity_Duration_.s.) #how are there values >60 ?? look into this!
+hist(bby$Mean_Total_Burst_Duration_.s.)
+plot(bby$Mean_Total_Burst_Duration_.s.~bby$Mean_Burst_Activity_...)  #these are the same
+
+corbby = bby[,4:10]
+C <- cor(corbby) #gives correl table - look for those > 0.5
+library(corrplot)
+corrplot(C, method = "number")
+#obvi, some are highly correlated, others are not
+
+#thoughts on variables to choose.. 
+  #to be consistent with etho data, a duration (i.e., burst duration* or burst activity) and burst count would be best
+  #response variables: Mean_Burst_Count and Mean_Burst_Duration_.s.
+  #fixed effect: TreatmentFactor
+  #random effects: clutch, parentage (aka Paternity), ID (note those with a # are not raised as "personality" fish but instead raised for other experiments)
+
+#~~~~~~~~~~~
+###start with burst count
+#Poisson 
+simulationOutput <- simulateResiduals(fittedModel = glmer(Mean_Burst_Count ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), family = poisson, data=bby), n=500) 
+#Negative binomial
+simulationOutput <- simulateResiduals(fittedModel = glmer.nb(Mean_Burst_Count ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), data=bby), n=500)
+#Gaussian
+simulationOutput <- simulateResiduals(fittedModel = lmer(Mean_Burst_Count ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), data=bby), n=500) #failed cuz grouping factor
+
+
+plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. 
+testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
+#p.p = 0.77 , p.nb = 0.8 , p.g = 0. 
+
+testZeroInflation(simulationOutput) #compare expected vs observed zeros, not zero-inflated if p>0.05.
+#p.p = 0.79 , p.nb = 0.79 , p.g < 
+
+testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
+#p.p = 0.15 , p.nb = 0.12 , p.g < 
+
+plot(simulationOutput)
+#either poisson or neg binomial would work. going with poisson for now -- note Poisson works for total embryo and reduced (only indvs) datasets!
+
+t1 <- glmer(Mean_Burst_Count ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), data = bby, family = "poisson") 
+
+t2 <- glmer(Mean_Burst_Count ~ TreatmentFactor + (1|ID) + (1|Clutch), data = bby, family = "poisson")
+anova(t1,t2) #same, use simpler model t2
+
+t3 <- glmer(Mean_Burst_Count ~ TreatmentFactor + (1|ID), data = bby, family = "poisson")
+anova(t2, t3) #t2 is better
+
+t4 <- glmer(Mean_Burst_Count ~ TreatmentFactor + (1|ID) + (1|Parentage), data = bby, family = "poisson") 
+anova(t2, t4) #t2 is better
+
+t5 <- glmer(Mean_Burst_Count ~ TreatmentFactor + (1|Clutch) + (1|Parentage), data = bby, family = "poisson") 
+anova(t2,t5) #t2 is better
+
+summary(t2) #no significant effect of treatment on embryo burst count
+boxplot(bby$Mean_Burst_Count~bby$TreatmentFactor)
+
+#check another way -- nonparametric tests since not normal
+plotNormalHistogram(bby$Mean_Burst_Count)
+shapiro.test(residuals(lm(Mean_Burst_Count~TreatmentFactor,bby)))
+bartlett.test(Mean_Burst_Count~TreatmentFactor,bby)
+
+fligner.test(Mean_Burst_Count~TreatmentFactor,bby) 
+kruskal.test(Mean_Burst_Count~TreatmentFactor,bby)
+dunnTest(Mean_Burst_Count~TreatmentFactor,bby,method="bh")
+#when not controlling for clutch or parentage, no signif differences in treatment
+
+#~~~~~~~~~~~
+#then burst duration
+#Poisson 
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(Mean_Burst_Duration_.s.) ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), family = poisson, data=bby), n=500) 
+#Negative binomial
+simulationOutput <- simulateResiduals(fittedModel = glmer.nb(round(Mean_Burst_Duration_.s.) ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), data=bby), n=500)
+#Gaussian
+simulationOutput <- simulateResiduals(fittedModel = lmer(Mean_Burst_Duration_.s. ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), data=bby), n=500) #failed cuz grouping factor
+
+
+plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. 
+testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
+#reduced data: p.p = 0.04 , p.nb = 0.04 , p.g = 0. 
+#full data: p.p = 0.004
+testZeroInflation(simulationOutput) #compare expected vs observed zeros, not zero-inflated if p>0.05.
+#reduced data: p.p = 0.36 , p.nb = 0.38 , p.g < 
+#full data: p.p = 0.004
+testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
+#reduced data: p.p = 0.12 , p.nb = 0.19 , p.g < 
+#full data: p.p = 0.007
+plot(simulationOutput)
+#either poisson or neg binomial would work for reduced data. going with poisson for now -- note Poisson works for total embryo and reduced (only indvs) datasets!
+
+t1 <- glmer(round(Mean_Burst_Duration_.s.) ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), data = bby, family = "poisson") 
+
+t2 <- glmer(round(Mean_Burst_Duration_.s.) ~ TreatmentFactor + (1|ID) + (1|Clutch), data = bby, family = "poisson")
+anova(t1,t2) #same, use simpler model t2
+
+t3 <- glmer(round(Mean_Burst_Duration_.s.) ~ TreatmentFactor + (1|ID), data = bby, family = "poisson")
+anova(t2, t3) #t2 is better
+
+t4 <- glmer(round(Mean_Burst_Duration_.s.) ~ TreatmentFactor + (1|ID) + (1|Parentage), data = bby, family = "poisson") 
+anova(t2, t4) #t2 is better
+
+t5 <- glmer(round(Mean_Burst_Duration_.s.) ~ TreatmentFactor + (1|Clutch) + (1|Parentage), data = bby, family = "poisson") 
+anova(t2,t5) #t2 is better
+
+#note for reduced dataset, t1 is better than t2 and t4 is best of all
+
+summary(t2) #for full data: treatments 125, 5, 0 significantly different in embryo burst duration
+summary(t4) #for reduced data: intercept is signif??
+boxplot(bby$Mean_Burst_Duration_.s.~bby$TreatmentFactor)
+
+#check another way -- nonparametric tests since not normal
+plotNormalHistogram(bby$Mean_Burst_Duration_.s.)
+shapiro.test(residuals(lm(Mean_Burst_Duration_.s.~TreatmentFactor,bby)))
+bartlett.test(Mean_Burst_Duration_.s.~TreatmentFactor,bby)
+
+fligner.test(Mean_Burst_Duration_.s.~TreatmentFactor,bby) 
+kruskal.test(Mean_Burst_Duration_.s.~TreatmentFactor,bby)
+dunnTest(Mean_Burst_Duration_.s.~TreatmentFactor,bby,method="bh")
+#when not controlling for clutch or parentage, no signif differences in treatment
 
 
 ########
