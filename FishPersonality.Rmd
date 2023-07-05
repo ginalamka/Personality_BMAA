@@ -246,7 +246,6 @@ which(theta[diag.element]<3e-5)
 
 b2 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho)
 anova(b1,b2) # no difference, proceed with model 2 (results did not change with or without optimizer)
-VarCorr(b2) #Random effects only
 
 b3 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho) # no interaction
 anova(b2,b3) # b2 is a significantly better fit. Use b2 in rpt function.
@@ -337,6 +336,20 @@ ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = round(CumDur.Z
 
 ```
 
+### Exploration and treatment effects
+```{r exploration & treatment}
+summary(mc1)
+# Main effects of treatment and age are not significant.
+# interaction between treatment 5 and age is significant at B = -0.23, p = 0.05
+
+# plot to visualize interaction effect
+ggplot(etho[!etho$Treatment == "25",], aes(x = Age, y = log(CumDur.Z2+1), color = Treatment))+
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_bw()
+
+```
+BMAA treatment was unrelated to the amount of time fish spent in the center of the arena. There was also no main effect of age. However, there was a significant interaction between treatment 5 and age. Relative to control fish, fish in the treatment 5 group decreased the duration they spent in the center over time.
 
 
 ## Boldness
@@ -402,13 +415,27 @@ plot(l.rpt, type = "permut")
 ### Latency and survival models
 It is straightforward to extract the random effect variance from the output of a coxme survival model. However, according to this post: https://stat.ethz.ch/pipermail/r-sig-mixed-models/2015q3/023871.html, there is no residual variance in Cox survival models. I can account for pseudocorrelation of repeated measures with coxph if I include FishName as a cluster or frailty term. But I can't seem to then get the amount of variance these terms account for.
 
+### Boldness and treatment effects
+```{r boldness & treatment}
+library(car)
+
+summary(l4) # need to calculate p-values
+Anova(l4, test="F")
+
+library(nlme)
+l4.nlme = lme(log(LatencyZ2360+1) ~ Treatment + scale.age, random = list(~ 1|FishName,
+                                                                         ~ 1|Clutch), data=etho)
+summary(l4.nlme)
+# no treatment effects. Significant Age effect suggesting habituation (as fish experienced more trials/got older, latency to enter the center decreased)
+```
+BMAA treatment was unrelated to the latency to enter the center (boldness). As individuals experience more trials, the latency to enter the ceter decreased, suggesting habituation to the experimental arena.
+
 
 
 ## Activity
 Mobility is our measure of activity. This variable describes the percentage of pixel change between the current sample at the time (t) and previous sample (t-1) *this is detected in the subject only, not the full arena* (full arena pixel change aka "activity" described by EthoVision) ; ranges from 0 - 100%. Mobility depends on the size of subject only, not on the arena size; a small fish results in a small number of pixels that change, therefore small movements may result in high change.
 
 Because we are not using variance in turning angle as a measure of exploration anymore, no need to include it as a covariate.
-
 ```{r activity- mobility}
 etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
 etho$FishName = as.factor(etho$FishName)
@@ -467,8 +494,29 @@ theta <- getME(m4, "theta")
 diag.element <- getME(m4, "lower")==0
 which(theta[diag.element]<1e-5) #looks like clutch and fishname are important
 
-
 ```
+
+### Activity and treatment effects
+```{r activity & treatment}
+summary(m4)
+
+library(nlme)
+m4.nlme = lme(log(Mean.Mobility+1) ~ Treatment + scale.age, random = list(~1|FishName, 
+                                                                          ~1|Clutch), data=etho)
+summary(m4.nlme)
+# All fixed effects are significant. 
+## Treatment5 B = -0.13, p = 0.03: Compared to control fish, treatment 5 fish are significantly less active
+## Treatment25 B = 0.11, p = 0.05; Compared to treatment 5 fish, treatment 25 fish are significantly more active
+## Age B = -0.10, p = 0; As age/trial number increases, activity level decreases
+
+
+# plot to visualize treatment effect
+ggplot(etho, aes(x = Age, y = log(Mean.Mobility+1), color = Treatment))+
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_bw()
+```
+Treatment significantly relates to activity level, but the relationship varies by amount of treatment.
 
 
 
@@ -549,6 +597,8 @@ mlt.var = MCMCglmm(cbind(Mean.Mobility, round(CumDur.Z2), log(LatencyZ2360+1)) ~
             data = etho)
 
 plot(mlt.var) # all looks pretty good
+autocorr(mlt.var$Sol) # converged
+autocorr(mlt.var$VCV) # converged
 summary(mlt.var) # G-structure is DV variance and co-variances
 
 # Checking that repeatability estimates are similar:
