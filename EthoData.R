@@ -628,6 +628,10 @@ plot(rptT, type="permut")
 }
 
 ###Step 5: Determine if we want to include embryo data here
+#At day 5 post lay, a subset of embryos were removed from the tiles they were laid on and put in an open petri dish under a compound microscope. 
+#For 60s trials, embryos were recorded and burst activity, burst count, and activity/inactivity were calculated using Danioscope software.
+#embryos were exposed for 5 days to 5 treatments of BMAA: control, 5, 25, 125, 625 ng/uL and then were raised for additional assays.
+
 setwd("C:/Users/ginab/Box/Old Computer/Grad School/BALL STATE/Thesis/2023_Etho,Embryo,Spinning/Personality_BMAA") #set working directory
 bby=read.table("BMAA_EmbryoData_updated.csv",header=TRUE, sep=",")  #BMAA_EmbryoData_Raw2023
 #458 datapoints total.. 245 indvs , 213 from another experiment (note other experiment has additional treatments!)
