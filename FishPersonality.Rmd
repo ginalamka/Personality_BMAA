@@ -135,14 +135,15 @@ boxplot(log(MeanMeander+1) ~ Age, data = etho)
 
 
 ## Variables:
-1. Exploration = Angular Velocity. The relative turn angle / time difference ; degrees per second; can be + or -. Measures the speed of change in direction of movement - used to assess turn bias or circular tendency and abnormalities of behavior. NOTE - turn angle is sensitive to small movements of body points. if distance moved is very small, turn angle can get high, unrealistic values (additionally, consecutive turns can have high values). To combat this, let's scale distance moved.
+1. Exploration = Cumulative duration in the center (percent) **"CumDur.Z2"**
+*Not used:*
+  *Angular Velocity. The relative turn angle / time difference ; degrees per second; can be + or -. Measures the speed of change in direction of     movement - used to assess turn bias or circular tendency and abnormalities of behavior. NOTE - turn angle is sensitive to small movements of      body points. if distance moved is very small, turn angle can get high, unrealistic values (additionally, consecutive turns can have high          values). To combat this, let's scale distance moved.*
+    *- Relative turn angle is the signed angle of each turn. As such, when summary statistics are done, some of the angles cancel each other out         and it is hard/confusing to interpret these numbers. Relative turn angle informs the primary direction of turns individuals make (rather          than how many turns vs how straight is the path)*
+    *- As such, we may consider using another variable like cumulative duration in the center (see boldness)*
 
-    - Relative turn angle is the signed angle of each turn. As such, when summary statistics are done, some of the angles cancel each other out and it is hard/confusing to interpret these numbers. Relative turn angle informs the primary direction of turns individuals make (rather than how many turns vs how straight is the path)
-    - As such, we may consider using another variable like cumulative duration in the center (see boldness)
+2. Activity = Mobility. The percentage of pixel change between current sample and previous sample *detected in the subject only* ; ranges from 0 - 100%. NOTE - mobility depends on size of subject only, not on arena size. small fish results in small number of pixels that change, therefore small movements results in high change **"Mean.Mobility"**
 
-2. Activity = Mobility. The percentage of pixel change between current sample and previous sample *detected in the subject only* ; ranges from 0 - 100%. NOTE - mobility depends on size of subject only, not on arena size. small fish results in small number of pixels that change, therefore small movements results in high change
-
-3. Boldness = Cumulative duration in the center (count or percent) OR Latency to enter the center (see exploration).
+3. Boldness = Latency to enter the center **"LatencyZ2360"**
 
 
 # Repeatability Results
@@ -171,15 +172,13 @@ plot(ta2)
 
 ```
 
-
-## Rethinking exploration
+### Rethinking exploration
 
 The data for turning angle are summarized from Relative turning angle (where the sign of the turn is taken in to account). This means that mean of turning angle within a trial are not reflective of the number and degree of turns individuals make because turns in different directions cancel out.
 
 We could use Variance in Turning Angle to illustrate the predictability with which an individual turns, but variance is also calculated based on the mean which does not have much significance for exploration. Large numbers mean that turning angle is very different from the mean, small numbers mean the turning angle is similar to the mean.
 
 Alternatively, we could pick different variables. For one, we could say Duration in the Center is representative of exploration and Latency to enter the Center is representative of boldness. Or we could say Frequency of Zone Alterations is a measure of exploration (actually no because they could be crossing zones repeatedly in a very small amount of space). Although it could seem like another measure of activity, it is not very correlated with Mean Mobility (0.24). This variable does look like it varies by arena size, so we would need to account for that in some way - maybe include an offset for average body size at each age, or arena size.
-
 
 ```{r exploration alternatives}
 library(ggplot2)
@@ -201,11 +200,9 @@ ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = LatencyZ2360))
 
 ```
 
+Time spent in the middle can be the proportion of time spent in the middle (out of trial time = 360 sec) or the actual number of seconds spent in the middle zone. It is difficult to find a well-fitting model family or transformation of the proportion data. Negative binomial fits well to the proportion data. A poisson model with an observation-level random effect fits well to the count data.
 
-## Boldness
-Time spent in the middle is our measure of boldness. The variables are the proportion of time spent in the middle (out of trial time = 360 sec) or the actual number of seconds spent in the middle zone. It is difficult to find a well-fitting model family or transformation of the proportion data. Negative binomial fits well to the proportion data. A poisson model with an observation-level random effect fits well to the count data.
-
-```{r boldness-cumulative duration in the middle}
+```{r exploration-cumulative duration in the middle}
 etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
 etho$trial.time = 360
 etho$OLRE = seq_len(nrow(etho)) #column with observation-level random effect
@@ -340,7 +337,11 @@ ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = round(CumDur.Z
 
 ```
 
-If we need to use cumulative duration in the middle as our measure of exploration, we can instead use latency to enter the middle as our measure of boldness.
+
+
+## Boldness
+
+Because of the relative turn angle, we need to use cumulative duration in the middle as our measure of exploration. We instead use latency to enter the middle as our measure of boldness.
 ```{r boldness-latency to enter the middle}
 etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
 etho$trial.time = 360
@@ -468,6 +469,8 @@ which(theta[diag.element]<1e-5) #looks like clutch and fishname are important
 
 
 ```
+
+
 
 ## Why are repeatability values so low?
 
