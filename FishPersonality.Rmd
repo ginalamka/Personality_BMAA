@@ -539,13 +539,13 @@ mlt.var = MCMCglmm(cbind(Mean.Mobility, round(CumDur.Z2), log(LatencyZ2360+1)) ~
             rcov =~ us(trait):units,
             family = c("gaussian","poisson","gaussian"),
             prior = prior_mltvar,
-            nitt=4200,
-            burnin=200,
-            thin=10,
+            nitt=420000,
+            burnin=8000,
+            thin=100,
             verbose = TRUE,
             data = etho)
 
-plot(mlt.var) #clearly some autocorrelation, so need to run more iterations still, but so far all looks pretty good
+plot(mlt.var) # all looks pretty good
 summary(mlt.var) # G-structure is DV variance and co-variances
 
 # Checking that repeatability estimates are similar:
@@ -555,7 +555,7 @@ mlt.var$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"] +
 mlt.var$VCV[,"traitMean.Mobility:traitMean.Mobility.units"]   #between individual variation + Residual variation
 )
 mean(rpt.mob) # 0.16 (higher than rpt)
-HPDinterval(rpt.mob) # 0.11-0.21
+HPDinterval(rpt.mob) # 0.11-0.22
 plot(rpt.mob)
 
 ## CumDur.Z2
@@ -573,7 +573,7 @@ mlt.var$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"] +
 mlt.var$VCV[,"traitLatencyZ2360:traitLatencyZ2360.units"]   #between individual variation + Residual variation
 )
 mean(rpt.lat) # 0.11 (higher than rpt)
-HPDinterval(rpt.lat) # 0.07-0.16
+HPDinterval(rpt.lat) # 0.06-0.16
 plot(rpt.lat)
 
 
@@ -583,23 +583,23 @@ cor_MobDur <- mlt.var$VCV[,"traitMean.Mobility:traitCumDur.Z2.FishName"]/
 (sqrt(mlt.var$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"])*
 sqrt(mlt.var$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"]))
 mean(cor_MobDur) # 0.09
-HPDinterval(cor_MobDur) # -0.23-0.40 ...crosses zero so non-significant correlation
+HPDinterval(cor_MobDur) # -0.23-0.43 ...crosses zero so non-significant correlation
 plot(cor_MobDur)
 
 ## Mobility/Latency
 cor_MobLat <- mlt.var$VCV[,"traitMean.Mobility:traitLatencyZ2360.FishName"]/
 (sqrt(mlt.var$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"])*
 sqrt(mlt.var$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"]))
-mean(cor_MobLat) # -0.76
-HPDinterval(cor_MobLat) # -0.94 - -0.59 ...does NOT cross zero, so significant correlation
+mean(cor_MobLat) # -0.77
+HPDinterval(cor_MobLat) # -0.96 - -0.60 ...does NOT cross zero, so significant correlation
 plot(cor_MobLat)
 
 ## Latency/Duration
 cor_LatDur <- mlt.var$VCV[,"traitLatencyZ2360:traitCumDur.Z2.FishName"]/
 (sqrt(mlt.var$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"])*
 sqrt(mlt.var$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"]))
-mean(cor_LatDur) # -0.36
-HPDinterval(cor_LatDur) # -0.67 - -0.11 ...does NOT cross zero, so significant correlation
+mean(cor_LatDur) # -0.34
+HPDinterval(cor_LatDur) # -0.65 - -0.02 ...does NOT cross zero, so significant correlation
 plot(cor_LatDur)
 
 
@@ -629,5 +629,8 @@ ggplot(df_cors, aes(x = Traits, y = Estimate)) +
 
 ```
 
-Boldness and exploration are negatively correlated, but that has to do with the fact that boldness is quantified as a latency. More exploratory individuals (spent more time in the center), had lower latencies to enter the center (i.e. more bold). Similarly, more active individuals had shorter latencies to enter the center. 
+Boldness and exploration are negatively correlated, but that has to do with the fact that boldness is quantified as a latency. More exploratory individuals (spent more time in the center), had lower latencies to enter the center (i.e. more bold). Similarly, more active individuals had shorter latencies to enter the center. The propensity to show higher activity was not significantly correlated with the amount of time spent in the center.
+
+
+
 
