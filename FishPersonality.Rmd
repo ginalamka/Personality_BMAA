@@ -574,7 +574,7 @@ etho$Age[which(etho$Age == 15)]<-14
 etho$Age = as.numeric(etho$Age)
 etho$scale.age = scale(etho$Age, scale = T, center = T)
 
-library(DHARMa)
+library(MCMCglmm)
 
 #uninformative prior for a model with 3 DVs, one random effect and two fixed effects
 prior_mltvar = list(R = list(V = diag(3), nu = 1.002),
@@ -684,6 +684,125 @@ ggplot(df_cors, aes(x = Traits, y = Estimate)) +
 
 Boldness and exploration are negatively correlated, but that has to do with the fact that boldness is quantified as a latency. More exploratory individuals (spent more time in the center), had lower latencies to enter the center (i.e. more bold). Similarly, more active individuals had shorter latencies to enter the center. The propensity to show higher activity was not significantly correlated with the amount of time spent in the center.
 
+### Do behavioral syndromes vary by treatment level?
+```{r BS by treatment}
+library(MCMCglmm)
+
+# 3 separate multivariate models for contol, treatment 5 and treatment 25:
+##uninformative prior for a model with 3 DVs, one random effect and one fixed effects
+prior_mltvar = list(R = list(V = diag(3), nu = 1.002),
+            G = list(G1 = list(V = diag(3), nu = 3,
+            alpha.mu = rep(0,3),
+            alpha.V = diag(25^2,3,3))))
+
+t0.bs = MCMCglmm(cbind(Mean.Mobility, round(CumDur.Z2), log(LatencyZ2360+1)) ~ trait-1 +
+            trait:scale.age,
+            random =~ us(trait):FishName,
+            rcov =~ us(trait):units,
+            family = c("gaussian","poisson","gaussian"),
+            prior = prior_mltvar,
+            nitt=420000,
+            burnin=8000,
+            thin=100,
+            verbose = TRUE,
+            data = etho[which(etho$Treatment == "0"),])
+
+t5.bs = MCMCglmm(cbind(Mean.Mobility, round(CumDur.Z2), log(LatencyZ2360+1)) ~ trait-1 +
+            trait:scale.age,
+            random =~ us(trait):FishName,
+            rcov =~ us(trait):units,
+            family = c("gaussian","poisson","gaussian"),
+            prior = prior_mltvar,
+            nitt=420000,
+            burnin=8000,
+            thin=100,
+            verbose = TRUE,
+            data = etho[which(etho$Treatment == "5"),])
+
+t25.bs = MCMCglmm(cbind(Mean.Mobility, round(CumDur.Z2), log(LatencyZ2360+1)) ~ trait-1 +
+            trait:scale.age,
+            random =~ us(trait):FishName,
+            rcov =~ us(trait):units,
+            family = c("gaussian","poisson","gaussian"),
+            prior = prior_mltvar,
+            nitt=420000,
+            burnin=800,
+            thin=100,
+            verbose = TRUE,
+            data = etho[which(etho$Treatment == "25"),])
+
+# From the variance components of the modles calculate the correlation among individuals for each pair of variables in each treatment group
+## Control (T0)
+### Mobility/Duration
+t0.cor_MobDur <- t0.bs$VCV[,"traitMean.Mobility:traitCumDur.Z2.FishName"]/
+(sqrt(t0.bs$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"])*
+sqrt(t0.bs$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"]))
+### Mobility/Latency
+t0.cor_MobLat <- t0.bs$VCV[,"traitMean.Mobility:traitLatencyZ2360.FishName"]/
+(sqrt(t0.bs$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"])*
+sqrt(t0.bs$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"]))
+### Latency/Duration
+t0.cor_LatDur <- t0.bs$VCV[,"traitLatencyZ2360:traitCumDur.Z2.FishName"]/
+(sqrt(t0.bs$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"])*
+sqrt(t0.bs$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"]))
+
+## Treatment 5 (T5)
+### Mobility/Duration
+t5.cor_MobDur <- t5.bs$VCV[,"traitMean.Mobility:traitCumDur.Z2.FishName"]/
+(sqrt(t5.bs$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"])*
+sqrt(t5.bs$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"]))
+### Mobility/Latency
+t5.cor_MobLat <- t5.bs$VCV[,"traitMean.Mobility:traitLatencyZ2360.FishName"]/
+(sqrt(t5.bs$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"])*
+sqrt(t5.bs$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"]))
+### Latency/Duration
+t5.cor_LatDur <- t5.bs$VCV[,"traitLatencyZ2360:traitCumDur.Z2.FishName"]/
+(sqrt(t5.bs$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"])*
+sqrt(t5.bs$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"]))
+
+## Treatment 25 (T25)
+### Mobility/Duration
+t25.cor_MobDur <- t25.bs$VCV[,"traitMean.Mobility:traitCumDur.Z2.FishName"]/
+(sqrt(t25.bs$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"])*
+sqrt(t25.bs$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"]))
+### Mobility/Latency
+t25.cor_MobLat <- t25.bs$VCV[,"traitMean.Mobility:traitLatencyZ2360.FishName"]/
+(sqrt(t25.bs$VCV[,"traitMean.Mobility:traitMean.Mobility.FishName"])*
+sqrt(t25.bs$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"]))
+### Latency/Duration
+t25.cor_LatDur <- t25.bs$VCV[,"traitLatencyZ2360:traitCumDur.Z2.FishName"]/
+(sqrt(t25.bs$VCV[,"traitLatencyZ2360:traitLatencyZ2360.FishName"])*
+sqrt(t25.bs$VCV[,"traitCumDur.Z2:traitCumDur.Z2.FishName"]))
+
+
+# Visualizing
+## Correlation plot
+t.df_cors <- data.frame(Traits = c("Activity,Exploration","Activity,Exploration","Activity,Exploration",
+                                 "Activity,Boldness","Activity,Boldness","Activity,Boldness",
+                                 "Boldness, Exploration","Boldness, Exploration","Boldness, Exploration"),
+                      Treatment = c("Control","T5","T25",
+                                    "Control","T5","T25",
+                                    "Control","T5","T25"),  
+                      Estimate = c(mean(t0.cor_MobDur),mean(t5.cor_MobDur),mean(t25.cor_MobDur),
+                                   mean(t0.cor_MobLat),mean(t5.cor_MobLat),mean(t25.cor_MobLat),
+                                   mean(t0.cor_LatDur),mean(t5.cor_LatDur),mean(t25.cor_LatDur)),
+                      Lower = c(HPDinterval(t0.cor_MobDur)[,"lower"],HPDinterval(t5.cor_MobDur)[,"lower"],HPDinterval(t25.cor_MobDur)[,"lower"],
+                                HPDinterval(t0.cor_MobLat)[,"lower"],HPDinterval(t5.cor_MobLat)[,"lower"],HPDinterval(t25.cor_MobLat)[,"lower"],
+                                HPDinterval(t0.cor_LatDur)[,"lower"],HPDinterval(t5.cor_LatDur)[,"lower"],HPDinterval(t25.cor_LatDur)[,"lower"]),
+                      Upper = c(HPDinterval(t0.cor_MobDur)[,"upper"],HPDinterval(t5.cor_MobDur)[,"upper"],HPDinterval(t25.cor_MobDur)[,"upper"],
+                                HPDinterval(t0.cor_MobLat)[,"upper"],HPDinterval(t5.cor_MobLat)[,"upper"],HPDinterval(t25.cor_MobLat)[,"upper"],
+                                HPDinterval(t0.cor_LatDur)[,"upper"],HPDinterval(t5.cor_LatDur)[,"upper"],HPDinterval(t25.cor_LatDur)[,"upper"]))
+
+ggplot(t.df_cors, aes(x = Traits, y = Estimate, color = Treatment)) +
+       geom_pointrange(aes(ymin = Lower, ymax = Upper),position=position_dodge(width=0.5)) +
+       geom_hline(yintercept = 0, linetype = "dotted", alpha = 0.3) +
+       scale_x_discrete(limits = c("Activity,Exploration","Activity,Boldness","Boldness, Exploration")) +
+       labs(x = "Trait combinations",y = "Correlation (Estimate +/- 95% CIs)") +
+       ylim(-1,1) + coord_flip() +
+       theme_classic()
+
+```
+No difference in behavioral syndromes by Treatment because all 95% CIs overlap among the treatment groups. However, the decreased sample size led to the boldness:exploration correlation becoming statistically nonsignificant.
 
 
 
