@@ -251,7 +251,7 @@ b3 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), f
 anova(b2,b3) # b2 is a significantly better fit. Use b2 in rpt function.
 
 #### rptR package for repeatability estimate
-rptB = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100) # model fails to converge with the OLRE 🤦
+rptB = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100) # model fails to converge with the OLRE... After re-reading rptR documentation, Poisson models are automatically fit with and OLRE in rptR.
 rptB
 
 
@@ -522,7 +522,7 @@ Treatment significantly relates to activity level, but the relationship varies b
 
 ## Why are repeatability values so low?
 
-```{r repeatability by treatment group}
+```{r visualizing variance components}
 #Cumulative duration in the center
 ggplot(etho, aes(x = reorder(FishName,CumDur.Z2,mean), y = log(CumDur.Z2+1), color = Treatment)) +
   facet_wrap(~Treatment) +
@@ -560,6 +560,24 @@ ggplot(etho, aes(x = as.factor(as.numeric(Age)), y = log(Mean.Mobility+1), color
   theme_classic()
 
 ##Distribution of values look similar across groups
+
+# Look at the variance components to see whether within-individual variance is large and/or between individual variance is small.
+## Duration in center (exploration)
+rptB = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), datatype = "Poisson", ratio = F, data=etho, grname = c("FishName","Residual"), nboot = 100, npermut = 100)
+## MCMCglmm estimates:
+mean(mc1$VCV[,"FishName"]) 
+mean(mc1$VCV[,"units"])
+### Within-individual (residual) variance (1.84) is much larger than between individual (0.26)
+
+## Latency to enter center (boldness)
+l.rpt = rpt(log(LatencyZ2360+1) ~ Treatment + scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", ratio = F, data=etho, grname = c("FishName","Residual"), nboot = 100, npermut = 100)
+print(l.rpt)
+### Within-individual variance (2.27) is much larger than between individual (0.19)
+
+## Mobility (activity)
+m.rpt = rpt(Mean.Mobility ~ Treatment + scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", ratio = F, data=etho, grname = c("FishName","Clutch","Residual"), nboot = 100, npermut = 100)
+print(m.rpt)
+### Within-individual variance (27.6) is much larger than between individual (3.81) or between clutch (1.63) variance
 ```
 
 
