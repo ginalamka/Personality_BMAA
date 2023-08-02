@@ -251,8 +251,8 @@ b3 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), f
 anova(b2,b3) # b2 is a significantly better fit. Use b2 in rpt function.
 
 #### rptR package for repeatability estimate
-rptB = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100) # model fails to converge with the OLRE... After re-reading rptR documentation, Poisson models are automatically fit with and OLRE in rptR.
-rptB
+rptB = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100) # Poisson models are automatically fit with an OLRE in the rptR package.
+rptB # R = 0.10 but se = 0 and CI is 0.10-0.10 so something is wrong here.
 
 
 #### MCMCglmm instead of rptR for repeatability estimate
@@ -326,13 +326,7 @@ p <- ggplot(permut.bytrt, aes(x = Repeatability)) +
   geom_vline(xintercept = 0.12, color = "red") +
   theme_classic() 
 p+scale_x_break(c(0.0021,0.12), scales = "free", ticklabels = 0.12)
-## I cannot get this plot to look how I want it to. The point is that no matter whether we permute across all data or permute data within treatment, the observed repeatability value is way larger.
-  
-
-ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = round(CumDur.Z2))) +
-  #facet_wrap(~Treatment) +
-  geom_boxplot() +
-  theme_classic()
+## I cannot get this plot to look how I want it to. The point is that no matter whether we permute across all data or permute data within treatment, the observed repeatability value is way larger than the permuted repeatability value.
 
 ```
 
@@ -343,10 +337,13 @@ summary(mc1)
 # interaction between treatment 5 and age is significant at B = -0.23, p = 0.05
 
 # plot to visualize interaction effect
-ggplot(etho[!etho$Treatment == "25",], aes(x = Age, y = log(CumDur.Z2+1), color = Treatment))+
-  geom_point() +
+exp.plot = ggplot(etho, aes(x = Age, y = log(CumDur.Z2+1), color = Treatment))+
+  geom_point(alpha = 0.7, size =3) +
   geom_smooth(method = "lm") +
-  theme_bw()
+  theme_bw() + 
+  scale_x_continuous(limits=c(0,200),
+                     breaks=c(14,21,49,77,105,133,161,189))+
+  ylab("Cumulative duration in the center") + ggtitle("a) Exploration")
 
 ```
 BMAA treatment was unrelated to the amount of time fish spent in the center of the arena. There was also no main effect of age. However, there was a significant interaction between treatment 5 and age. Relative to control fish, fish in the treatment 5 group decreased the duration they spent in the center over time.
@@ -418,7 +415,6 @@ It is straightforward to extract the random effect variance from the output of a
 ### Boldness and treatment effects
 ```{r boldness & treatment}
 library(car)
-
 summary(l4) # need to calculate p-values
 Anova(l4, test="F")
 
@@ -427,8 +423,17 @@ l4.nlme = lme(log(LatencyZ2360+1) ~ Treatment + scale.age, random = list(~ 1|Fis
                                                                          ~ 1|Clutch), data=etho)
 summary(l4.nlme)
 # no treatment effects. Significant Age effect suggesting habituation (as fish experienced more trials/got older, latency to enter the center decreased)
+
+# plot to visualize treatment effect
+bol.plot = ggplot(etho, aes(x = Age, y = log(LatencyZ2360+1), color = Treatment))+
+  geom_point(alpha = 0.7,size = 3) +
+  geom_smooth(method = "lm") +
+  theme_bw() +
+  scale_x_continuous(limits=c(0,200),
+                     breaks=c(14,21,49,77,105,133,161,189))+
+  ylab("Latency to enter the center") + ggtitle("b) Boldness")
 ```
-BMAA treatment was unrelated to the latency to enter the center (boldness). As individuals experience more trials, the latency to enter the ceter decreased, suggesting habituation to the experimental arena.
+BMAA treatment was unrelated to the latency to enter the center (boldness). As individuals experience more trials, the latency to enter the center decreased, suggesting habituation to the experimental arena.
 
 
 
@@ -499,26 +504,40 @@ which(theta[diag.element]<1e-5) #looks like clutch and fishname are important
 ### Activity and treatment effects
 ```{r activity & treatment}
 summary(m4)
-
-library(nlme)
+levels(etho$Treatment)
+library(nlme) # use this package to get significance values for fixed effects
 m4.nlme = lme(log(Mean.Mobility+1) ~ Treatment + scale.age, random = list(~1|FishName, 
                                                                           ~1|Clutch), data=etho)
 summary(m4.nlme)
 # All fixed effects are significant. 
 ## Treatment5 B = -0.13, p = 0.03: Compared to control fish, treatment 5 fish are significantly less active
-## Treatment25 B = 0.11, p = 0.05; Compared to treatment 5 fish, treatment 25 fish are significantly more active
+## Treatment25 B = 0.11, p = 0.05; Compared to control fish, treatment 25 fish are significantly more active
 ## Age B = -0.10, p = 0; As age/trial number increases, activity level decreases
+
+# does it matter if we re-scale Treatment factor levels? NO, effect sizes and sign directions from model are the same
+etho$Treatment = factor(etho$Treatment, levels = c("0","25","5"))
+etho$Treatment = factor(etho$Treatment, levels = c("0","5","25"))
 
 
 # plot to visualize treatment effect
-ggplot(etho, aes(x = Age, y = log(Mean.Mobility+1), color = Treatment))+
-  geom_point() +
+act.plot = ggplot(etho, aes(x = Age, y = log(Mean.Mobility+1), color = Treatment))+
+  geom_point(size = 3, alpha = 0.7) +
   geom_smooth(method = "lm") +
-  theme_bw()
+  theme_bw() +
+  scale_x_continuous(limits=c(0,200),
+                     breaks=c(14,21,49,77,105,133,161,189))+
+  ylab("Mean Mobility") + ggtitle("c) Activity")
 ```
-Treatment significantly relates to activity level, but the relationship varies by amount of treatment.
+Treatment significantly relates to activity level, but the relationship varies by amount of treatment. Treatment 5 fish are less active, while Treatment 25 fish are more active relative to Control fish.
 
+```{r combind figure}
+comb.plot = ggarrange(exp.plot+rremove("xlab"),bol.plot+rremove("xlab"),act.plot,
+                 common.legend = T, legend = "right",
+                 font.label=list(color="black",size=22),
+                 nrow = 3,ncol = 1,align = "hv")
 
+comb.plot
+```
 
 ## Why are repeatability values so low?
 
@@ -578,8 +597,84 @@ print(l.rpt)
 m.rpt = rpt(Mean.Mobility ~ Treatment + scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", ratio = F, data=etho, grname = c("FishName","Clutch","Residual"), nboot = 100, npermut = 100)
 print(m.rpt)
 ### Within-individual variance (27.6) is much larger than between individual (3.81) or between clutch (1.63) variance
-```
 
+# Is residual variance different for each treatment group?
+## Exploration
+mc1 = MCMCglmm(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age, random = ~FishName, family = "poisson", data = etho,
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000) #all data combined with Treatment effect
+mc0 = MCMCglmm(round(CumDur.Z2) ~ scale.age, random = ~FishName, family = "poisson", data = etho[which(etho$Treatment == "0"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000) #Control treatment
+mean(mc0$VCV[,"units"]) # 1.44
+repeat0 <- mc0$VCV[,"FishName"]/(mc0$VCV[,"FishName"]+mc0$VCV[,"units"]) #latent scale adjusted repeatability and its credible interval
+mean(repeat0) # Control Repeatability: 0.16
+HPDinterval(repeat0, 0.95) # 0.04 - 0.29
+
+mc5 = MCMCglmm(round(CumDur.Z2) ~ scale.age, random = ~FishName, family = "poisson", data = etho[which(etho$Treatment == "5"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000) #Treatment 5
+mean(mc5$VCV[,"units"]) # 2.38
+repeat5 <- mc5$VCV[,"FishName"]/(mc5$VCV[,"FishName"]+mc5$VCV[,"units"]) #latent scale adjusted repeatability and its credible interval
+mean(repeat5) # Treatment 5 Repeatability: 0.05
+HPDinterval(repeat5, 0.95) # 0.0001 - 0.14
+
+mc25 = MCMCglmm(round(CumDur.Z2) ~ scale.age, random = ~FishName, family = "poisson", data = etho[which(etho$Treatment == "25"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000) # Treatment 25
+mean(mc25$VCV[,"units"]) # 1.98
+repeat25 <- mc25$VCV[,"FishName"]/(mc25$VCV[,"FishName"]+mc25$VCV[,"units"]) #latent scale adjusted repeatability and its credible interval
+mean(repeat25) # Treatment 25 Repeatability: 0.14
+HPDinterval(repeat25, 0.95) # 0.01 - 0.26
+
+
+## Boldness
+prior = list(R=list(R1=list(V=1,nu=0.002)), G=list(G1=list(V=1,nu=0.002),G2=list(V=1,nu=0.002)))
+mb0 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age,random = ~FishName+Clutch, family = "gaussian", data = etho[which(etho$Treatment == "0"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+mean(mb0$VCV[,"units"]) # 2.24
+repeat0 <- mb0$VCV[,"FishName"]/(mb0$VCV[,"FishName"]+mb0$VCV[,"units"]) #latent scale adjusted repeatability and its credible interval
+mean(repeat0) # Control Repeatability: 0.09
+HPDinterval(repeat0, 0.95) # 0.0002 - 0.17
+
+mb5 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age,random = ~FishName+Clutch, family = "gaussian", data = etho[which(etho$Treatment == "5"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+mean(mb5$VCV[,"units"]) # 2.65
+repeat5 <- mb5$VCV[,"FishName"]/(mb5$VCV[,"FishName"]+mb5$VCV[,"units"]) #latent scale adjusted repeatability and its credible interval
+mean(repeat5) # Treatment 5 Repeatability: 0.04
+HPDinterval(repeat5, 0.95) # 0.0001 - 0.12
+
+mb25 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age,random = ~FishName+Clutch, family = "gaussian", data = etho[which(etho$Treatment == "25"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+mean(mb25$VCV[,"units"]) # 2.15
+repeat25 <- mb25$VCV[,"FishName"]/(mb25$VCV[,"FishName"]+mb25$VCV[,"units"]) #latent scale adjusted repeatability and its credible interval
+mean(repeat25) # Treatment 25 Repeatability: 0.06
+HPDinterval(repeat25, 0.95) # 0.0001 - 0.14
+
+
+## Activity
+ma0 = MCMCglmm(Mean.Mobility ~ scale.age,random = ~FishName+Clutch, family = "gaussian", data = etho[which(etho$Treatment == "0"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+mean(ma0$VCV[,"units"]) # 26.21
+mean(ma0$VCV[,"FishName"]) # 3.56
+repeat0 <- ma0$VCV[,"FishName"]/(ma0$VCV[,"FishName"]+ma0$VCV[,"units"]) #latent scale adjusted repeatability and its credible interval
+mean(repeat0) # Control Repeatability: 0.12
+HPDinterval(repeat0, 0.95) # 0.04 - 0.22
+
+ma5 = MCMCglmm(Mean.Mobility ~ scale.age,random = ~FishName+Clutch, family = "gaussian", data = etho[which(etho$Treatment == "5"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+mean(ma5$VCV[,"units"]) # 25.53
+mean(ma5$VCV[,"FishName"]) # 3.13
+repeat5 <- ma5$VCV[,"FishName"]/(ma5$VCV[,"FishName"]+ma5$VCV[,"units"]) #latent scale adjusted repeatability and its credible interval
+mean(repeat5) # Treatment 5 Repeatability: 0.11
+HPDinterval(repeat5, 0.95) # 0.0001 - 0.21
+
+ma25 = MCMCglmm(Mean.Mobility ~ scale.age,random = ~FishName+Clutch, family = "gaussian", data = etho[which(etho$Treatment == "25"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+mean(ma25$VCV[,"units"]) # 32.11
+mean(ma25$VCV[,"FishName"]) # 5.38
+repeat25 <- ma25$VCV[,"FishName"]/(ma25$VCV[,"FishName"]+ma25$VCV[,"units"]) #latent scale adjusted repeatability and its credible interval
+mean(repeat25) # Treatment 25 Repeatability: 0.14
+HPDinterval(repeat25, 0.95) # 0.04 - 0.25
+
+```
+Residual variance is generally much higher than among-individual variance. In particular, the Treatment 5 group seems to have lower repeatability values and wider confidence intervals than the other two groups.
 
 
 ## Behavioral Syndromes
