@@ -12,6 +12,7 @@
 
 #WILL NEED TO REMOVE: look into fish with * by their names!
 #QC - check into Lupin, MantisShrimp, Nikki
+#consider if those with only one/two readings should be removed?
 
 #changes in embryo data: 
   #indv with # for an ID are given unique numbers rather than all being 1 or 2
@@ -627,6 +628,9 @@ plot(rptT, type="permut")
 #we are going to proceed without the total distance (6/28/23)
 }
 
+#####################################################
+#####################################################
+
 ###Step 5: Determine if we want to include embryo data here
 #At day 5 post lay, a subset of embryos were removed from the tiles they were laid on and put in an open petri dish under a compound microscope. 
 #For 60s trials, embryos were recorded and burst activity, burst count, and activity/inactivity were calculated using Danioscope software.
@@ -638,21 +642,31 @@ bby=read.table("BMAA_EmbryoData_updated.csv",header=TRUE, sep=",")  #BMAA_Embryo
 #up to this point, indv are treated all the same, except in daniscope (to get these values) indvs were recorded individually while non indvs were recorded as a group (should not change results)
 #therefore, should probably include all embryos from control, 5, 25 treatments
 
-not = bby[bby[,13]=="n",,drop=F]  #32 in control, 59 in 5, 37 in 25
-indv = bby[bby[,13]=="y",,drop=F]
-bby = indv
+library(DHARMa)
+library(lme4)
 
+#FOR FULL DATASET
+#remove babies that are in the highest treatments
 rm = bby[bby[,3]=="125"|bby[,3]=="625",,drop=F]
 '%NOTin%' <- Negate(`%in%`)
 duced = bby[which(bby[,14]%NOTin%rm[,14]),,drop=F]
 table(duced[,3])
 bby=duced
 
+#FOR REDUCED DATASET
+#remove group indvs
+not = bby[bby[,13]=="n",,drop=F]  #32 in control, 59 in 5, 37 in 25
+indv = bby[bby[,13]=="y",,drop=F]
+bby = indv
+
 head(bby)
 str(bby)
 
-#set Treatment as a factor
+#set Treatment, Indv, Video File, and ID as a factor
 bby$TreatmentFactor = as.factor(bby$TreatmentFactor)
+bby$indv = as.factor(bby$indv)
+bby$ID = as.factor(bby$ID)
+bby$Video.File= as.factor(bby$Video.File)
 
 hist(bby$Mean_Burst_Activity_...)  #this is the % of trial time that embryo was active (proportion!)
 hist(bby$Mean_Burst_Count)
@@ -664,6 +678,48 @@ hist(bby$Mean_Inactivity_Duration_.s.) #how are there values >60 ?? look into th
 hist(bby$Mean_Total_Burst_Duration_.s.)
 plot(bby$Mean_Total_Burst_Duration_.s.~bby$Mean_Burst_Activity_...)  #these are the same
 
+plot(bby$Mean_Burst_Activity_...~bby$TreatmentFactor)
+plot(bby$Mean_Burst_Count~bby$TreatmentFactor)
+plot(bby$Mean_Burst_Duration_.s.~bby$TreatmentFactor)
+
+plot(bby$Mean_Burst_Activity_...~bby$indv)
+plot(bby$Mean_Burst_Count~bby$indv)
+plot(bby$Mean_Burst_Duration_.s.~bby$indv)
+
+#there doesnt seem to be any super interesting patterns for the influence of treatment on activity, burst count, or burst duration
+
+#check to see if there are differences in the group vs indv.
+library(ggplot2)
+ggplot(bby, aes(x = indv, y = Mean_Burst_Count)) +
+  facet_wrap(~TreatmentFactor) +
+  geom_boxplot() +
+  theme_classic()
+ggplot(bby, aes(x = indv, y = Mean_Burst_Duration_.s.)) +
+  facet_wrap(~TreatmentFactor) +
+  geom_boxplot() +
+  theme_classic()
+ggplot(bby, aes(x = indv, y = Mean_Burst_Activity_...)) +
+  facet_wrap(~TreatmentFactor) +
+  geom_boxplot() +
+  theme_classic()
+#in all three variables, there are some large outliers - consider these.
+#in all three variables, indvs videoed in the group have a *slightly* higher average than those recorded as indv - potentially due to higher outliers pulling the means up
+  #potential argument for conspecific/ group effects ?
+
+sm = bby[bby$Mean_Burst_Activity_...<=15,,drop=F]
+plot(sm$Mean_Burst_Activity_...~sm$TreatmentFactor)
+
+sm = bby[bby$Mean_Burst_Count<=6,,drop=F]
+plot(sm$Mean_Burst_Count~sm$TreatmentFactor)
+
+sm = bby[bby$Mean_Burst_Duration_.s.<=10,,drop=F]
+plot(sm$Mean_Burst_Duration_.s.~sm$indv)
+
+#if I remove outliers, the means of all three variables are the same across treatments..
+  #however, the variance may increase as treatment increases in Burst Count and Activity 
+  #interestingly, the variance may decrease as treatment increases in Burst Duration  
+  #this *ehh somewhat* follows what we expected, since BMAA can cause convulsions, is neuroexcitatory, and reduces locomotor performance ...Butttt might be a stretch
+
 corbby = bby[,4:10]
 C <- cor(corbby) #gives correl table - look for those > 0.5
 library(corrplot)
@@ -673,45 +729,74 @@ corrplot(C, method = "number")
 #thoughts on variables to choose.. 
   #to be consistent with etho data, a duration (i.e., burst duration* or burst activity) and burst count would be best
   #response variables: Mean_Burst_Count and Mean_Burst_Duration_.s.
-  #fixed effect: TreatmentFactor
-  #random effects: clutch, parentage (aka Paternity), ID (note those with a # are not raised as "personality" fish but instead raised for other experiments)
+  #fixed effect: TreatmentFactor, indv (aka if assay was indv or in a group)
+  #random effects: clutch, parentage (aka Paternity), video.file (if recorded indv or in group) -- note not ID since only one recording of each
+
+#FULL Model : count/duration ~ TreatmentFactor + indv + (1|Clutch) + (1|Parentage) + (1|Video.File)
+
+#look at dif variables and look for treatment patterns, if any -- check -- there arent any interesting patterns
+#figure out if indv vs group should be included -- check -- looks like it could go either way really - depends on the conclusions we want to draw           
+#then look at if behaviors relate to the three personality traits
+#then fit models to the data
+
+
+
 
 #~~~~~~~~~~~
 ###start with burst count
 #Poisson 
-simulationOutput <- simulateResiduals(fittedModel = glmer(Mean_Burst_Count ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), family = poisson, data=bby), n=500) 
+simulationOutput <- simulateResiduals(fittedModel = glmer(Mean_Burst_Count ~ TreatmentFactor + indv + (1|Clutch) + (1|Parentage) + (1|Video.File), family = poisson, data=bby), n=500) 
 #Negative binomial
-simulationOutput <- simulateResiduals(fittedModel = glmer.nb(Mean_Burst_Count ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), data=bby), n=500)
+simulationOutput <- simulateResiduals(fittedModel = glmer.nb(Mean_Burst_Count ~ TreatmentFactor + indv + (1|Clutch) + (1|Parentage) + (1|Video.File), data=bby), n=500) 
 #Gaussian
-simulationOutput <- simulateResiduals(fittedModel = lmer(Mean_Burst_Count ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), data=bby), n=500) #failed cuz grouping factor
+simulationOutput <- simulateResiduals(fittedModel = lmer(Mean_Burst_Count ~ TreatmentFactor + indv + (1|Clutch) + (1|Parentage) + (1|Video.File), data=bby), n=500) #is singular
 
 
 plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. 
 testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
-#p.p = 0.77 , p.nb = 0.8 , p.g = 0. 
+#p.p = 0.34 , p.nb = 0.38 , p.g = 0.96 (full dataset)
+#p.p = 0.048 , p.nb = 0.74 , p.g = 0.96 -- reduced dataset
 
 testZeroInflation(simulationOutput) #compare expected vs observed zeros, not zero-inflated if p>0.05.
-#p.p = 0.79 , p.nb = 0.79 , p.g < 
-
+#p.p = 0.94 , p.nb = 0.43 , p.g < 0.001 (full dataset)
+#p.p = 0.15 , p.nb = 0.76 , p.g < 0.001 - reduced dataset
 testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
-#p.p = 0.15 , p.nb = 0.12 , p.g < 
+#p.p = 0.032 , p.nb = 0.028 , p.g < 0.001 -- looks weirddd (full dataset)
+#p.p = 0.05 , p.nb = 0.31 , p.g < 0.001 - reduced dataset
 
 plot(simulationOutput)
 #either poisson or neg binomial would work. going with poisson for now -- note Poisson works for total embryo and reduced (only indvs) datasets!
 
-t1 <- glmer(Mean_Burst_Count ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), data = bby, family = "poisson") 
+t1 <- glmer(Mean_Burst_Count ~ TreatmentFactor + indv + (1|Clutch) + (1|Parentage) + (1|Video.File), data = bby, family = "poisson") 
 
-t2 <- glmer(Mean_Burst_Count ~ TreatmentFactor + (1|ID) + (1|Clutch), data = bby, family = "poisson")
-anova(t1,t2) #same, use simpler model t2
+t2 <- glmer(Mean_Burst_Count ~ TreatmentFactor + indv + (1|Clutch) + (1|Parentage), data = bby, family = "poisson")
+anova(t1,t2) #full model (t1) is better
 
-t3 <- glmer(Mean_Burst_Count ~ TreatmentFactor + (1|ID), data = bby, family = "poisson")
-anova(t2, t3) #t2 is better
+t3 <- glmer(Mean_Burst_Count ~ TreatmentFactor  + (1|Clutch) + (1|Parentage) + (1|Video.File), data = bby, family = "poisson") #failed to converge
+anova(t1, t3)
 
-t4 <- glmer(Mean_Burst_Count ~ TreatmentFactor + (1|ID) + (1|Parentage), data = bby, family = "poisson") 
-anova(t2, t4) #t2 is better
+t4 <- glmer(Mean_Burst_Count ~ TreatmentFactor + indv + (1|Clutch)  + (1|Video.File), data = bby, family = "poisson") 
+anova(t1, t4) #similar but t1 is better even tho it has another variable
 
-t5 <- glmer(Mean_Burst_Count ~ TreatmentFactor + (1|Clutch) + (1|Parentage), data = bby, family = "poisson") 
-anova(t2,t5) #t2 is better
+t5 <- glmer(Mean_Burst_Count ~ TreatmentFactor + indv  + (1|Parentage) + (1|Video.File), data = bby, family = "poisson") 
+anova(t1,t5) #same, t5 is more simple
+
+t6 <- glmer(Mean_Burst_Count ~ TreatmentFactor + indv + (1|Video.File), data = bby, family = "poisson") 
+t7 <- glmer(Mean_Burst_Count ~ TreatmentFactor + indv + (1|Parentage), data = bby, family = "poisson")
+anova(t7,t5) #t5 is better than t6 & t7
+
+t8 <- glmer(Mean_Burst_Count ~ TreatmentFactor  + (1|Parentage) + (1|Video.File), data = bby, family = "poisson") 
+anova(t5, t8) #t5 is better
+
+t9 <- glmer(Mean_Burst_Count ~ indv  + (1|Parentage) + (1|Video.File), data = bby, family = "poisson") 
+anova(t9,t5) #same, but treatment matters so keep it
+anova(t1, t4,t5) #same 
+
+
+#seems like being in a group matters -- ggplot and facet by this. also see how patterns hold up when removing group indv completly
+#maybe group vs indv best in another paper and just indv good for personality?
+
+#RE discussion with Avril: fixed will be best if we want to evaluate the differences in indv vs group, random will be best if we just want to control for it
 
 summary(t2) #no significant effect of treatment on embryo burst count
 boxplot(bby$Mean_Burst_Count~bby$TreatmentFactor)
@@ -729,23 +814,23 @@ dunnTest(Mean_Burst_Count~TreatmentFactor,bby,method="bh")
 #~~~~~~~~~~~
 #then burst duration
 #Poisson 
-simulationOutput <- simulateResiduals(fittedModel = glmer(round(Mean_Burst_Duration_.s.) ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), family = poisson, data=bby), n=500) 
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(Mean_Burst_Duration_.s.) ~ TreatmentFactor + indv + (1|Clutch) + (1|Parentage) + (1|Video.File), family = poisson, data=bby), n=500) 
 #Negative binomial
-simulationOutput <- simulateResiduals(fittedModel = glmer.nb(round(Mean_Burst_Duration_.s.) ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), data=bby), n=500)
+simulationOutput <- simulateResiduals(fittedModel = glmer.nb(round(Mean_Burst_Duration_.s.) ~ TreatmentFactor + indv + (1|Clutch) + (1|Parentage) + (1|Video.File), data=bby), n=500) #is singular
 #Gaussian
-simulationOutput <- simulateResiduals(fittedModel = lmer(Mean_Burst_Duration_.s. ~ TreatmentFactor + (1|ID) + (1|Clutch) + (1|Parentage), data=bby), n=500) #failed cuz grouping factor
+simulationOutput <- simulateResiduals(fittedModel = lmer(Mean_Burst_Duration_.s. ~ TreatmentFactor + indv + (1|Clutch) + (1|Parentage) + (1|Video.File), data=bby), n=500) #is singular
 
 
 plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. 
 testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
-#reduced data: p.p = 0.04 , p.nb = 0.04 , p.g = 0. 
-#full data: p.p = 0.004
+#reduced data: p.p = 0.028 , p.nb = 0.11 , p.g = 0.84
+#full data: p.p = 0.02 , p.nb = 0.02 , p.g = 0.84
 testZeroInflation(simulationOutput) #compare expected vs observed zeros, not zero-inflated if p>0.05.
-#reduced data: p.p = 0.36 , p.nb = 0.38 , p.g < 
-#full data: p.p = 0.004
+#reduced data: p.p = 0.38 , p.nb = 0.29 , p.g < 0.001
+#full data: p.p = 0.18 , p.nb = 0.004 , p.g < 0.001
 testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
-#reduced data: p.p = 0.12 , p.nb = 0.19 , p.g < 
-#full data: p.p = 0.007
+#reduced data: p.p < 0.001 , p.nb = 0.01 , p.g < 0.001
+#full data: p.p = 0.10 , p.nb < 0.001 , p.g < 0.001
 plot(simulationOutput)
 #either poisson or neg binomial would work for reduced data. going with poisson for now -- note Poisson works for total embryo and reduced (only indvs) datasets!
 
