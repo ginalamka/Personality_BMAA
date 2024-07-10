@@ -10,10 +10,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Background information
 
-This project evaluates the effect of BMAA (a cyanotoxin) on fathead minnow behavior. Young fish were grouped in 3 treatment conditions: control (no BMAA exposure), T5 (low BMAA exposure) and T25 (moderate BMAA exposure). Behavioral responses to an open-field test were then recorded at 8 time points across development. Ethovision was used to record behavior during the open-field test and resulted in many different variables that could represent different aspects of personality. Additionally, embryos were test once for burst activity.
+This project evaluates the effect of BMAA (a cyanotoxin) on fathead minnow behavior. Young fish were grouped in 3 treatment conditions: control (no BMAA exposure), T5 (low BMAA exposure) and T25 (moderate BMAA exposure). Behavioral responses to an open-field test were then recorded at 8 time points across development. Ethovision was used to record behavior during the open-field test and resulted in many different variables that could represent different aspects of personality. Additionally, embryos were tested once for burst activity.
 
 Our main questions with these data are:
-1. Are the behaviors recorded during the open field test reflective of underlying personality traits? To test this we will evaluate the repeatability of each behavior across the 8 time points.
+1. Are the behaviors recorded during the open field test reflective of underlying personality traits or a behavioral syndrome? To test this we will evaluate the repeatability of each behavior across the 8 time points.
 2. How does BMAA exposure affect behavior in the open field test? To test this we will compare performance among treatment groups.
 
 
@@ -22,7 +22,7 @@ Our main questions with these data are:
 We first need to determine the relationships among the variables recorded by Ethovision.
 
 ```{r variables}
-etho = read.csv(url("https://raw.githubusercontent.com/ginalamka/Personality_BMAA/main/EthoData_updated.csv?token=GHSAT0AAAAAACB372QA37AYRBA76MHRCWXSZD7LT4Q"), header=T, sep=",", stringsAsFactors=F)
+etho = read.csv(url("https://raw.githubusercontent.com/ginalamka/Personality_BMAA/main/EthoData_updated.csv?token=GHSAT0AAAAAACUS76MRXKHDLZE5YYRHYN4GZUO5AJA"), header=T, sep=",", stringsAsFactors=F)
 etho$Age[which(etho$Age == 15)]<-14
 
 ##How correlated are the variables?
@@ -121,13 +121,9 @@ The PC loadings are too diffuse and inconsistent across time points. We will mov
 
 ```{r variables by age}
 
-etho$Age[which(etho$Age == 15)]<-14
-
 #### Variables that relate to arena size change with age
 boxplot(TotDist ~ Age, data = etho)
-boxplot(log(MeanMeander+1) ~ Age, data = etho)
-
-
+boxplot(MeanMeander ~ Age, data = etho)
 
 
 ```
@@ -137,9 +133,9 @@ boxplot(log(MeanMeander+1) ~ Age, data = etho)
 ## Variables:
 1. Exploration = Cumulative duration in the center (percent) **"CumDur.Z2"**
 *Not used:*
-  *Angular Velocity. The relative turn angle / time difference ; degrees per second; can be + or -. Measures the speed of change in direction of     movement - used to assess turn bias or circular tendency and abnormalities of behavior. NOTE - turn angle is sensitive to small movements of      body points. if distance moved is very small, turn angle can get high, unrealistic values (additionally, consecutive turns can have high          values). To combat this, let's scale distance moved.*
-    *- Relative turn angle is the signed angle of each turn. As such, when summary statistics are done, some of the angles cancel each other out         and it is hard/confusing to interpret these numbers. Relative turn angle informs the primary direction of turns individuals make (rather          than how many turns vs how straight is the path)*
-    *- As such, we may consider using another variable like cumulative duration in the center (see boldness)*
+  *- Angular Velocity. The relative turn angle / time difference ; degrees per second; can be + or -. Measures the speed of change in direction of movement - used to assess turn bias or circular tendency and abnormalities of behavior. NOTE - turn angle is sensitive to small movements of body points. if distance moved is very small, turn angle can get high, unrealistic values (additionally, consecutive turns can have high values). To combat this, let's scale distance moved.*
+  *- Relative turn angle is the signed angle of each turn. As such, when summary statistics are done, some of the angles cancel each other out and it is hard/confusing to interpret these numbers. Relative turn angle informs the primary direction of turns individuals make (rather than how many turns vs how straight is the path)*
+*As such, we may consider using another variable like cumulative duration in the center (see boldness)*
 
 2. Activity = Mobility. The percentage of pixel change between current sample and previous sample *detected in the subject only* ; ranges from 0 - 100%. NOTE - mobility depends on size of subject only, not on arena size. small fish results in small number of pixels that change, therefore small movements results in high change **"Mean.Mobility"**
 
@@ -148,14 +144,14 @@ boxplot(log(MeanMeander+1) ~ Age, data = etho)
 
 # Repeatability Results
 
-## Exploration
+## Exploration - OLD - Mean angular velocity
 ```{r turning angle rpt}
-etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
+#etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
 
 #test fit of Gaussian distribution
 library(ggpubr)
 ggqqplot(log(abs(scale(etho$MeanAngVel, center = T, scale = T))))
-shapiro.test(log(abs(scale(etho$MeanAngVel, center = T, scale = T))))
+shapiro.test(log(abs(scale(etho$MeanAngVel, center = T, scale = T)))) # not normal
 
 library(lme4)
 ta1 = lmer(log(abs(scale(MeanAngVel, center = T, scale = T))) ~ Treatment + Age + (1|FishName) + (1|Clutch) + (1|Paternity), data = etho)
@@ -203,7 +199,7 @@ ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = LatencyZ2360))
 Time spent in the middle can be the proportion of time spent in the middle (out of trial time = 360 sec) or the actual number of seconds spent in the middle zone. It is difficult to find a well-fitting model family or transformation of the proportion data. Negative binomial fits well to the proportion data. A poisson model with an observation-level random effect fits well to the count data.
 
 ```{r exploration-cumulative duration in the middle}
-etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
+#etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
 etho$trial.time = 360
 etho$OLRE = seq_len(nrow(etho)) #column with observation-level random effect
 etho$scale.age = scale(etho$Age, scale = T, center = T)
@@ -220,7 +216,7 @@ simulationOutput <- simulateResiduals(fittedModel = glmer.nb(round(CumDur.Z2) ~ 
 # fit is singular with Paternity included
 
 #Poisson with Observation-level random effect to account for overdispersion:
-simulationOutput <- simulateResiduals(fittedModel = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho), n=500) #isSingular warning because of Paternity & Clutch
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = "poisson", data=etho), n=500) #isSingular warning because of Paternity & Clutch
 
 plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. 
 testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
@@ -233,26 +229,27 @@ plot(simulationOutput)
 
 
 
-#### Best fit is the Poisson regression on percent time in middle with the OLRE. ####
+#### Best fit is the Poisson regression on proportion of time in middle with the OLRE. ####
 
 
 # Double check which variables to include in accordance with above simulation results:
-b1 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity) + (1|OLRE), family = poisson, data=etho, control=glmerControl(optimizer="bobyqa", #add optimizer because otherwise it fails to converge
+e1 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity) + (1|OLRE), family = "poisson", data=etho, control=glmerControl(optimizer="bobyqa", #add optimizer because otherwise it fails to converge
                                  optCtrl=list(maxfun=2e5))) # full model
 theta <- getME(b1, "theta")
 diag.element <- getME(b1, "lower")==0
 which(theta[diag.element]<3e-5)
 #Fit is singular because of clutch and paternity
 
-b2 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho)
-anova(b1,b2) # no difference, proceed with model 2 (results did not change with or without optimizer)
+e2 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = "poisson", data=etho)
+anova(e1,e2) # no difference, proceed with model 2 (results did not change with or without optimizer)
 
-b3 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), family = poisson, data=etho) # no interaction
-anova(b2,b3) # b2 is a significantly better fit. Use b2 in rpt function.
+e3 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), family = "poisson", data=etho) # no interaction
+anova(e2,e3) # b2 is a significantly better fit. Use b2 in rpt function.
 
 #### rptR package for repeatability estimate
-rptB = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100) # Poisson models are automatically fit with an OLRE in the rptR package.
-rptB # R = 0.10 but se = 0 and CI is 0.10-0.10 so something is wrong here.
+library(rptR)
+rptE = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100) # Poisson models are automatically fit with an OLRE in the rptR package.
+rptE # R = 0.10 but se = 0 and CI is 0.10-0.10 so something is wrong here.
 
 
 #### MCMCglmm instead of rptR for repeatability estimate
@@ -268,7 +265,7 @@ autocorr(mc1$VCV)
 repeata <- mc1$VCV[,"FishName"]/(mc1$VCV[,"FishName"]+mc1$VCV[,"units"]) #latent scale adjusted repeatability and its credible interval
 mean(repeata) # Repeatability: 0.12
 var(repeata) # 0.001
-posterior.mode(repeata) # 0.12
+posterior.mode(repeata) # 0.13
 HPDinterval(repeata, 0.95) # 0.06 - 0.19
 
 ##### permute the data so fish behavior is random to test the significance of 0.12 repeatability value #####
@@ -344,25 +341,197 @@ exp.plot = ggplot(etho, aes(x = Age, y = log(CumDur.Z2+1), color = Treatment))+
   scale_x_continuous(limits=c(0,200),
                      breaks=c(14,21,49,77,105,133,161,189))+
   ylab("Cumulative duration in the center") + ggtitle("a) Exploration")
-
+exp.plot
 ```
-BMAA treatment was unrelated to the amount of time fish spent in the center of the arena. There was also no main effect of age. However, there was a significant interaction between treatment 5 and age. Relative to control fish, fish in the treatment 5 group decreased the duration they spent in the center over time.
+BMAA treatment was unrelated to the amount of time fish spent in the center of the arena. There was also no main effect of age. However, there was a significant interaction between treatment 5 and age. Relative to control fish and treatment 25 fish, fish in the treatment 5 group decreased the duration they spent in the center over time.
 
 
 ## Boldness
 
-Because of the relative turn angle, we need to use cumulative duration in the middle as our measure of exploration. We instead use latency to enter the middle as our measure of boldness.
-```{r boldness-latency to enter the middle}
-etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
-etho$trial.time = 360
-etho$OLRE = seq_len(nrow(etho)) #column with observation-level random effect
-etho$scale.age = scale(etho$Age, scale = T, center = T)
-etho$FishName = as.factor(etho$FishName)
-etho$Treatment = as.factor(etho$Treatment)
-etho$Age[which(etho$Age == "15")]<-"14"
+Because of the weirdness of the relative turn angle variable, we need to use cumulative duration in the middle as our measure of exploration. We instead use latency to enter the middle as our measure of boldness.
 
-#Use LatencyZ2360 - which gives a ceiling value to those fish that never entered the center (10% of data)
+### Latency and survival models
+Any latency variable, especially those with ceiling values, are most appropriately modeled using survival analysis. We can now calculate repeatability of this latency variable using survival models and a function Shinichi Nakagawa and I created in May.
+```{r boldness-survival analysis for latency to enter the middle}
+#etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
+#etho$trial.time = 360
+#etho$OLRE = seq_len(nrow(etho)) #column with observation-level random effect
+#etho$scale.age = scale(etho$Age, scale = T, center = T)
+#etho$FishName = as.factor(etho$FishName)
+#etho$Treatment = as.factor(etho$Treatment)
+#etho$Age[which(etho$Age == "15")]<-"14"
 
+### Use LatencyZ2360 - which gives a ceiling value to those fish that never entered the center (10% of data) ###
+
+############################################
+# Survival analysis repeatability using rptRsurv function written by Shinichi Nakagawa and Kelsey (https://github.com/kelseybmccune/Time-to-Event_Repeatability/tree/main)
+
+# Define the function
+# missing values ignored
+
+#' @title comxe_pval
+#' @description This function calculates the p-value of the effect of the random effect in a coxme model. It also provides the p-value of the effect of the random effect using a bootstrapped method.
+#' @param model A coxme model object
+#' @param data The original data used to fit the model
+#' @param boot Number of simulations to run to produce 95 percent confidence intervals for I2. Default is \code{NULL}, where only the point estimate is provided.
+#' @return A vector of p-values
+#' @author Shinichi Nakagawa - s.nakagawa@unsw.edu.au
+#' @author etc
+
+coxme_pval <- function(model, data, boot = NULL) {
+  # Get the original data
+  
+  if(all(class(model) %in% c("coxme")) == FALSE) {stop("Sorry, you need to fit a coxme model of class coxme")}
+  
+  # I think we need to use get the dimension of the data
+
+  response <- as.data.frame(model$y[,1:2])
+  
+  fixed_formula <- as.formula(model$formulaList$fixed)
+  
+  # fit the model without any random effects
+  fit <- survival::coxph(as.formula(fixed_formula), data = data)
+  # loglikelihood ratio test
+  # this is p value of effect of taking all random effects
+  pval<- anova(fit, model)$P[-1]
+  names(pval) <- "liklihood_ratio_test"
+  
+  if(!is.null(boot)){
+  
+  # we need to use replicate to create many vectors of these - randomize the data
+  orders <- replicate(boot, sample(1:nrow(response)))  
+  
+  fixed_formula <- as.character(fixed_formula)  
+  random_formula <-  as.vector(as.character(model$formulaList$random))        
+  formula <- as.formula(paste("Surv(new_time, new_status)", 
+                           "~", 
+                           fixed_formula[3], 
+                           "+",
+                           paste(random_formula, collapse = "+")))
+  data2 <- data
+
+  # randomizaton/permutation tests
+  pb <- progress::progress_bar$new(total = boot,
+                                 format = "Bootstrapping [:bar] :percent ETA: :eta",
+                                 show_after = 0)
+
+  # loop
+  num <- length(summary(model)$random$variance)
+
+  store <- matrix(NA, nrow = num, ncol = boot)
+
+  # Loop over the number of bootstraps
+  for (i in 1:boot) {
+  # Permute the data
+
+  data2$new_time <- response$time[orders[ ,i]]
+  data2$new_status <- response$status[orders[ ,i]]
+
+  # Fit the original coxme model
+  temp  <- tryCatch(coxme(formula, data = data2))
+
+  # get variance component
+   store[ ,i] <- summary(temp)$random$variance
+
+   pb$tick()
+   Sys.sleep(1 / boot)
+
+    }
+   
+  # getting the p value
+   pval2 <- sapply(1:num, function(x) {
+     sum(store[x,] > summary(model)$random$variance[x])/boot}
+     )
+   
+   names(pval2) <- paste(rep("bootstrapped_pval", num), 1:num, sep = "_")
+  }
+
+  if(exists("pval2")) {
+    
+  res <- c(pval, pval2)
+  return(res)
+  
+  } else {
+  res <- pval
+  return(res)
+  }
+
+}
+
+
+#' @title coxme_icc_ci
+#' @description This function calculates the 95 percent confidence interval for the intraclass correlation from the `coxme` objects.
+#' @param model A coxme model object
+#' @param upper.multiplier The multiplier for the upper bound of the confidence interval. Default is 10 (adjust to a higer value if the upper bound is not reached).
+#' @return A vector of the lower, point estimate, and upper bounds of the 95 percent confidence interval for the intraclass correlation
+#' @author Shinichi Nakagawa - s.nakagawa@unsw.edu.au
+#' @author etc
+
+coxme_icc_ci <- function(model, upper.multiplier = 10) {
+  if(all(class(model) %in% c("coxme")) == FALSE)
+    {stop("Sorry, you need to fit a coxme model of class coxme")} 
+  if(any(length(summary(model)$random$variance) > 1)) {stop("Sorry. At the moment, we can only have a model with one random effect.")}
+  
+  # Define a sequence of variance values``
+  # the length of the response
+  n <- nrow(model$y)
+  cut = 100
+  
+  var_point <- summary(model)$random$variance
+  
+  # based on this pdf: https://cran.r-project.org/web/packages/coxme/vignettes/coxme.pdf
+  # upper CI is limited to var_point*(10*log(n)) - so this could fail
+  estvar1 <- seq(0.00000000000001, var_point, length = cut)
+  estvar2 <- seq(var_point, var_point*upper.multiplier, length = cut+1)[-1]
+  estvar <- c(estvar1, estvar2)
+  
+  # Initialize a vector to store the log-likelihood values
+  loglik <- double(cut)
+  
+  # Loop over the variance values
+  for (i in seq_len(cut*2)) {
+    # Fit a coxme model with fixed variance
+    tfit <- update(model, vfixed = estvar[i])
+    
+    # Compute the log-likelihood
+    loglik[i] <- 2 * diff(tfit$loglik)[1]
+  }
+  
+  # Compute the threshold for the 95% confidence interval
+  temp <-  as.numeric(2 * diff(model$loglik)[1]) - loglik
+  
+  # Find the variance values that correspond to the threshold
+  # getting lower and upper CI using profile likelihood
+  lower <- approx(temp[1:(cut)], sqrt(estvar[1:(cut)]), qchisq(.95, 1))$y
+  upper <- approx(temp[(cut + 1):(2*cut)], sqrt(estvar[(cut + 1):(2*cut)]), qchisq(.95, 1))$y
+  
+  # Return the 95% confidence interval
+  ICC_lower <- lower^2 / (lower^2 + pi^2 / 6)
+  if (is.na(ICC_lower)) {
+    ICC_lower <- 0
+  }
+  ICC_point <- var_point / (var_point + pi^2 / 6)
+  ICC_upper <- upper^2 / (upper^2 + pi^2 / 6)
+  names(ICC_lower) <- "lower"
+  names(ICC_point) <- "ICC"
+  names(ICC_upper) <- "upper"
+  
+  return(c(ICC_lower, ICC_point, ICC_upper))
+}
+
+############################################
+
+library(coxme)
+etho$event = ifelse(etho$LatencyZ2360 == 360,0,1)
+b1 = coxme(Surv(LatencyZ2360,event)~Treatment + scale.age + Treatment*scale.age + (1|FishName), data = etho). # function can only handle 1 random effect
+coxme_pval(b1,etho,boot=100) #  p < 0.01
+coxme_icc_ci(b1, upper.multiplier = 10) # ICC = 0.09 (0.05-0.13)
+
+
+```
+
+
+```{r boldness - log transformed latency}
 library(DHARMa)
 library(lme4)
 
@@ -371,8 +540,6 @@ hist(log(etho$LatencyZ2360+1))
 
 #Poisson 
 simulationOutput <- simulateResiduals(fittedModel = glmer(round(LatencyZ2360) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), family = poisson, data=etho), n=500) 
-#Negative binomial
-simulationOutput <- simulateResiduals(fittedModel = glmer.nb(round(LatencyZ2360) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho), n=500)
 #Gaussian
 simulationOutput <- simulateResiduals(fittedModel = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho), n=500)
 
@@ -398,7 +565,7 @@ l4 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + (1|FishName) + (1|Clutch
 anova(l2,l4) #no difference, use simpler model (l4)
 
 l5 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + (1|Clutch), data=etho) # does FishName account for significant amount of variance?
-anova(l5,l4) #actually model without FishName is better...
+anova(l5,l4) #model with both is better
 
 
 l.rpt = rpt(log(LatencyZ2360+1) ~ Treatment + scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho, grname = "FishName", nboot = 500, npermut = 500) #singular fit warning with or without Clutch
@@ -409,14 +576,18 @@ l.rpt
 plot(l.rpt, type = "permut")
 
 ```
-### Latency and survival models
-It is straightforward to extract the random effect variance from the output of a coxme survival model. However, according to this post: https://stat.ethz.ch/pipermail/r-sig-mixed-models/2015q3/023871.html, there is no residual variance in Cox survival models. I can account for pseudocorrelation of repeated measures with coxph if I include FishName as a cluster or frailty term. But I can't seem to then get the amount of variance these terms account for.
+
 
 ### Boldness and treatment effects
 ```{r boldness & treatment}
+
+summary(b1) # survival model
+# significant effect of age
+
 library(car)
 summary(l4) # need to calculate p-values
 Anova(l4, test="F")
+
 
 library(nlme)
 l4.nlme = lme(log(LatencyZ2360+1) ~ Treatment + scale.age, random = list(~ 1|FishName,
@@ -425,6 +596,20 @@ summary(l4.nlme)
 # no treatment effects. Significant Age effect suggesting habituation (as fish experienced more trials/got older, latency to enter the center decreased)
 
 # plot to visualize treatment effect
+library(survminer)
+b.plot.sfit = survfit(Surv(LatencyZ2360, event)~Treatment, data = etho)
+bsurv.plot = ggsurvplot(b.plot.sfit, data = etho, fun = 'event', 
+                       risk.table = F, pval = F, palette = c("black","#999999","red"), 
+                       xlab = "Latency to enter the center (sec)", 
+                       ylab = "Proportion", size = 1.5, legend = c(0.7,0.2))
+
+b.plot.sfit2 = survfit(Surv(LatencyZ2360, event)~Age, data = etho)
+bsurv.plot2 = ggsurvplot(b.plot.sfit2, data = etho, fun = 'event', 
+                       risk.table = F, pval = F,  
+                       xlab = "Latency to enter the center (sec)", 
+                       ylab = "Proportion", size = 1.5, legend = c(0.7,0.2))
+
+
 bol.plot = ggplot(etho, aes(x = Age, y = log(LatencyZ2360+1), color = Treatment))+
   geom_point(alpha = 0.7,size = 3) +
   geom_smooth(method = "lm") +
@@ -442,12 +627,12 @@ Mobility is our measure of activity. This variable describes the percentage of p
 
 Because we are not using variance in turning angle as a measure of exploration anymore, no need to include it as a covariate.
 ```{r activity- mobility}
-etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
-etho$FishName = as.factor(etho$FishName)
-etho$Treatment = as.factor(etho$Treatment)
-etho$Age[which(etho$Age == 15)]<-14
-etho$Age = as.numeric(etho$Age)
-etho$scale.age = scale(etho$Age, scale = T, center = T)
+#etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
+#etho$FishName = as.factor(etho$FishName)
+#etho$Treatment = as.factor(etho$Treatment)
+#etho$Age[which(etho$Age == 15)]<-14
+#etho$Age = as.numeric(etho$Age)
+#etho$scale.age = scale(etho$Age, scale = T, center = T)
 
 library(DHARMa)
 library(lme4)
@@ -488,7 +673,7 @@ m6 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (1|FishName), data=etho
 anova(m4,m6) #m4 is better - accounts for somethin!
 
 
-m.rpt = rpt(Mean.Mobility ~ Treatment + scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho, grname = c("FishName","Clutch"), nboot = 500, npermut = 500) #singular fit warning with or without Clutch
+m.rpt = rpt(log(Mean.Mobility+1) ~ Treatment + scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho, grname = c("FishName","Clutch"), nboot = 500, npermut = 500) #singular fit warning with or without Clutch
 m.rpt
 # R = 0.13 (0.07-0.18)
 # p.LRT and p.permute < 0.01
@@ -503,20 +688,19 @@ which(theta[diag.element]<1e-5) #looks like clutch and fishname are important
 
 ### Activity and treatment effects
 ```{r activity & treatment}
-summary(m4)
-levels(etho$Treatment)
-library(nlme) # use this package to get significance values for fixed effects
-m4.nlme = lme(log(Mean.Mobility+1) ~ Treatment + scale.age, random = list(~1|FishName, 
-                                                                          ~1|Clutch), data=etho)
-summary(m4.nlme)
-# All fixed effects are significant. 
-## Treatment5 B = -0.13, p = 0.03: Compared to control fish, treatment 5 fish are significantly less active
-## Treatment25 B = 0.11, p = 0.05; Compared to control fish, treatment 25 fish are significantly more active
-## Age B = -0.10, p = 0; As age/trial number increases, activity level decreases
 
-# does it matter if we re-scale Treatment factor levels? NO, effect sizes and sign directions from model are the same
-etho$Treatment = factor(etho$Treatment, levels = c("0","25","5"))
-etho$Treatment = factor(etho$Treatment, levels = c("0","5","25"))
+m4 = lmerTest::lmer(log(Mean.Mobility+1) ~ Treatment + Age + (1|FishName) + (1|Clutch), data=etho)
+summary(m4)
+Anova(m4) # global effect of Treatment and age
+
+library(emmeans)
+c1 = emmeans(m4, pairwise ~ Treatment,type="response") 
+plot(c1$emmeans) 
+c1$contrasts %>%
+     summary(infer = TRUE)
+# Treatment 5 significantly less active than Treatment 25. Not different compared to control fish.
+## Age: B = -0.10, p = 0; As age/trial number increases, activity level decreases
+
 
 
 # plot to visualize treatment effect
@@ -528,7 +712,7 @@ act.plot = ggplot(etho, aes(x = Age, y = log(Mean.Mobility+1), color = Treatment
                      breaks=c(14,21,49,77,105,133,161,189))+
   ylab("Mean Mobility") + ggtitle("c) Activity")
 ```
-Treatment significantly relates to activity level, but the relationship varies by amount of treatment. Treatment 5 fish are less active, while Treatment 25 fish are more active relative to Control fish.
+Treatment affects activity level, but the relationship varies by amount of treatment. Treatment 5 fish are significantly less active than Treatment 25 fish. Neither Treatment is significantly different from Control fish.
 
 ```{r combind figure}
 comb.plot = ggarrange(exp.plot+rremove("xlab"),bol.plot+rremove("xlab"),act.plot,
@@ -680,12 +864,12 @@ Residual variance is generally much higher than among-individual variance. In pa
 ## Behavioral Syndromes
 Using the tutorial/supplemental material from Houslay & Wilson 2017: Avoiding the misuse of BLUP in behavioral ecology https://tomhouslay.files.wordpress.com/2017/02/indivvar_mv_tutorial_mcmcglmm.pdf
 ```{r behav syndrome}
-etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
-etho$FishName = as.factor(etho$FishName)
-etho$Treatment = as.factor(etho$Treatment)
-etho$Age[which(etho$Age == 15)]<-14
-etho$Age = as.numeric(etho$Age)
-etho$scale.age = scale(etho$Age, scale = T, center = T)
+#etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
+#etho$FishName = as.factor(etho$FishName)
+#etho$Treatment = as.factor(etho$Treatment)
+#etho$Age[which(etho$Age == 15)]<-14
+#etho$Age = as.numeric(etho$Age)
+#etho$scale.age = scale(etho$Age, scale = T, center = T)
 
 library(MCMCglmm)
 
@@ -696,6 +880,7 @@ prior_mltvar = list(R = list(V = diag(3), nu = 1.002),
             alpha.V = diag(25^2,3,3))))
 
 #multivariate model for our 3 variables (Mean.Mobility, round(CumDur.Z2), log(LatencyZ2360+1)
+# takes a long time to run!
 mlt.var = MCMCglmm(cbind(Mean.Mobility, round(CumDur.Z2), log(LatencyZ2360+1)) ~ trait-1 +
             trait:scale.age +
             trait:Treatment,
