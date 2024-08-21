@@ -235,8 +235,8 @@ plot(simulationOutput)
 # Double check which variables to include in accordance with above simulation results:
 e1 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity) + (1|OLRE), family = "poisson", data=etho, control=glmerControl(optimizer="bobyqa", #add optimizer because otherwise it fails to converge
                                  optCtrl=list(maxfun=2e5))) # full model
-theta <- getME(b1, "theta")
-diag.element <- getME(b1, "lower")==0
+theta <- getME(e1, "theta")
+diag.element <- getME(e1, "lower")==0
 which(theta[diag.element]<3e-5)
 #Fit is singular because of clutch and paternity
 
@@ -244,15 +244,15 @@ e2 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|F
 anova(e1,e2) # no difference, proceed with model 2 (results did not change with or without optimizer)
 
 e3 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), family = "poisson", data=etho) # no interaction
-anova(e2,e3) # b2 is a significantly better fit. Use b2 in rpt function.
+anova(e2,e3) # b2 is a significantly better fit. Use e2 in rpt function.
 
 #### rptR package for repeatability estimate
 library(rptR)
-rptE = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), datatype = "Poisson", data=etho, grname = "FishName", nboot = 100, npermut = 100) # Poisson models are automatically fit with an OLRE in the rptR package.
+rptE = rpt(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), datatype = "Poisson", data=etho, grname = "FishName", nboot = 200, npermut = 100) # Poisson models are automatically fit with an OLRE in the rptR package.
 rptE # R = 0.10 but se = 0 and CI is 0.10-0.10 so something is wrong here.
 
 
-#### MCMCglmm instead of rptR for repeatability estimate
+#### MCMCglmm instead of rptR for repeatability estimate. MCMC with Poisson family automatically incorporates an OLRE
 #https://juliengamartin.github.io/wam_tuto/mcmcglmm-1.html
 #examples in the lit: https://doi.org/10.1007/s00265-019-2637-4 ; https://doi.org/10.1111/jeb.13701
 library(MCMCglmm)
