@@ -196,7 +196,7 @@ ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = LatencyZ2360))
 
 ```
 
-Time spent in the middle can be the proportion of time spent in the middle (out of trial time = 360 sec) or the actual number of seconds spent in the middle zone. It is difficult to find a well-fitting model family or transformation of the proportion data. Negative binomial fits well to the proportion data. A poisson model with an observation-level random effect fits well to the count data.
+Time spent in the middle can be the proportion of time spent in the middle (out of trial time = 360 sec; "CumDur.Z2") or the actual number of seconds spent in the middle zone ("CumDurZ2"). Negative binomial fits well to the proportion data. A poisson model with an observation-level random effect fits well to the count data.
 
 ```{r exploration-cumulative duration in the middle}
 #etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
@@ -269,9 +269,9 @@ posterior.mode(repeata) # 0.13
 HPDinterval(repeata, 0.95) # 0.06 - 0.19
 
 ##### permute the data so fish behavior is random to test the significance of 0.12 repeatability value #####
-##### Takes a loooong time to run with 1000. 10 permutations takes ~10 min
-results = rep(NA, 1000) 
-for(i in 1:1000){
+##### Takes a loooong time to run with 1000. 10 permutations takes ~10 min; 50 takes ~45min
+results = rep(NA, 500) 
+for(i in 1:50){
   tmp0 = data.frame("FishName" = etho$FishName[which(etho$Treatment=="0")], 
                     "Treatment"=etho$Treatment[which(etho$Treatment=="0")], 
                     "scale.age" = etho$scale.age[which(etho$Treatment=="0")], 
@@ -300,9 +300,10 @@ for(i in 1:1000){
   results[i] = mean(rpt) #average repeatability estimate from each iteration of the permutation
 }
 
-hist(results) # average repeatability estimate from each iteration of the permutation, which randomizes choices within reversals
+hist(results,xlim = c(0,0.13),xlab = "Repeatability estimates from randomized data") # average repeatability estimate from each iteration of the permutation, which randomizes choices within reversals
 abline(v=0.12,col="red")
-sum(results > 0.12)/1000 # probability the repeatability estimate from our actual data is greater than the repeatability estimates generated from the permutations which randomized the data
+sum(results > 0.12)/50 # probability the repeatability estimate from our actual data is greater than the repeatability estimates generated from the permutations which randomized the data
+# no estimates >= to 0.12. p = 0
 
 permut.results = results #rbind line hashtagged out in above permutations
 permut.bytrt = results #line 295-298 hashtagged out in above permutations
@@ -332,15 +333,28 @@ p+scale_x_break(c(0.0021,0.12), scales = "free", ticklabels = 0.12)
 summary(mc1)
 # Main effects of treatment and age are not significant.
 # interaction between treatment 5 and age is significant at B = -0.23, p = 0.05
+library(ggplot2)
+library(tidyr)
 
+etho.red = etho %>%
+  group_by(Age, Treatment) %>%
+  summarise(mean = mean(CumDur.Z2), sd = sd(CumDur.Z2))
 # plot to visualize interaction effect
-exp.plot = ggplot(etho, aes(x = Age, y = log(CumDur.Z2+1), color = Treatment))+
-  geom_point(alpha = 0.7, size =3) +
-  geom_smooth(method = "lm") +
-  theme_bw() + 
-  scale_x_continuous(limits=c(0,200),
-                     breaks=c(14,21,49,77,105,133,161,189))+
-  ylab("Cumulative duration in the center") + ggtitle("a) Exploration")
+exp.plot = ggplot(etho.red, aes(x = as.numeric(Age), y = mean, color = Treatment))+
+  geom_pointrange(aes(ymin = mean-sd, ymax = mean+sd),position = position_dodge(width = 7),alpha = 0.6) +
+  geom_smooth(method = "glm",se = F,linewidth = 1) +
+  theme_classic() + 
+  scale_color_manual(
+    values = c("red","darkgray","black"),
+    labels = c("0" = "Control",
+               "5" = "Low",
+               "25" = "High")) +
+  scale_x_continuous(
+ #   labels=c("14","21","49","77","105","133","161","189"),
+    breaks = c(14,21,49,77,105,133,161,189))+
+  theme(
+    axis.title = element_text(size = 16)) +
+  ylab("Proportion of time exploring") + xlab("Age (days)") + labs(color = "Treatment condition")
 exp.plot
 ```
 BMAA treatment was unrelated to the amount of time fish spent in the center of the arena. There was also no main effect of age. However, there was a significant interaction between treatment 5 and age. Relative to control fish and treatment 25 fish, fish in the treatment 5 group decreased the duration they spent in the center over time.
@@ -353,8 +367,7 @@ Because of the weirdness of the relative turn angle variable, we need to use cum
 ### Latency and survival models
 Any latency variable, especially those with ceiling values, are most appropriately modeled using survival analysis. We can now calculate repeatability of this latency variable using survival models and a function Shinichi Nakagawa and I created in May.
 ```{r boldness-survival analysis for latency to enter the middle}
-#etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
-#etho$trial.time = 360
+etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
 #etho$OLRE = seq_len(nrow(etho)) #column with observation-level random effect
 #etho$scale.age = scale(etho$Age, scale = T, center = T)
 #etho$FishName = as.factor(etho$FishName)
@@ -523,7 +536,7 @@ coxme_icc_ci <- function(model, upper.multiplier = 10) {
 
 library(coxme)
 etho$event = ifelse(etho$LatencyZ2360 == 360,0,1)
-b1 = coxme(Surv(LatencyZ2360,event)~Treatment + scale.age + Treatment*scale.age + (1|FishName), data = etho). # function can only handle 1 random effect
+b1 = coxme(Surv(LatencyZ2360,event)~Treatment + scale.age + (1|FishName), data = etho) # coxme_icc function can only handle 1 random effect
 coxme_pval(b1,etho,boot=100) #  p < 0.01
 coxme_icc_ci(b1, upper.multiplier = 10) # ICC = 0.09 (0.05-0.13)
 
@@ -584,39 +597,37 @@ plot(l.rpt, type = "permut")
 summary(b1) # survival model
 # significant effect of age
 
-library(car)
-summary(l4) # need to calculate p-values
-Anova(l4, test="F")
+#library(car)
+#summary(l4) # need to calculate p-values
+#Anova(l4, test="F")
 
 
-library(nlme)
-l4.nlme = lme(log(LatencyZ2360+1) ~ Treatment + scale.age, random = list(~ 1|FishName,
-                                                                         ~ 1|Clutch), data=etho)
-summary(l4.nlme)
+#library(nlme)
+#l4.nlme = lme(log(LatencyZ2360+1) ~ Treatment + scale.age, random = list(~ 1|FishName,
+    #                                                                     ~ 1|Clutch), data=etho)
+#summary(l4.nlme)
 # no treatment effects. Significant Age effect suggesting habituation (as fish experienced more trials/got older, latency to enter the center decreased)
 
 # plot to visualize treatment effect
 library(survminer)
 b.plot.sfit = survfit(Surv(LatencyZ2360, event)~Treatment, data = etho)
 bsurv.plot = ggsurvplot(b.plot.sfit, data = etho, fun = 'event', 
-                       risk.table = F, pval = F, palette = c("black","#999999","red"), 
+                       risk.table = F, pval = F, palette = c("red","#999999","black"), 
                        xlab = "Latency to enter the center (sec)", 
-                       ylab = "Proportion", size = 1.5, legend = c(0.7,0.2))
+                       ylab = "Proportion of fish", size = 1.5, 
+                       font.x = 16, font.y = 16,
+                       legend = c(0.7,0.2),legend.title = "Treatment condition",legend.labs = c("Control","Low","High"))
 
-b.plot.sfit2 = survfit(Surv(LatencyZ2360, event)~Age, data = etho)
+b.plot.sfit2 = survfit(Surv(LatencyZ2360, event)~as.numeric(Age), data = etho)
 bsurv.plot2 = ggsurvplot(b.plot.sfit2, data = etho, fun = 'event', 
                        risk.table = F, pval = F,  
                        xlab = "Latency to enter the center (sec)", 
-                       ylab = "Proportion", size = 1.5, legend = c(0.7,0.2))
+                       ylab = "Proportion of fish", size = 1.5, 
+                       font.x = 16, font.y = 16, font.legend = 16,
+                       legend = c(0.7,0.3), legend.title = "Age (days)",legend.labs = c(14,21,49,77,105,133,161,189),
+                       palette = "grey")
+# As age increases, latency to enter the center generally decreases
 
-
-bol.plot = ggplot(etho, aes(x = Age, y = log(LatencyZ2360+1), color = Treatment))+
-  geom_point(alpha = 0.7,size = 3) +
-  geom_smooth(method = "lm") +
-  theme_bw() +
-  scale_x_continuous(limits=c(0,200),
-                     breaks=c(14,21,49,77,105,133,161,189))+
-  ylab("Latency to enter the center") + ggtitle("b) Boldness")
 ```
 BMAA treatment was unrelated to the latency to enter the center (boldness). As individuals experience more trials, the latency to enter the center decreased, suggesting habituation to the experimental arena.
 
@@ -641,19 +652,17 @@ library(rptR)
 hist(etho$Mean.Mobility) # looks good
 
 #Gaussian
-simulationOutput <- simulateResiduals(fittedModel = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho), n=500)
+simulationOutput <- simulateResiduals(fittedModel = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch), data=etho), n=500)
 #Poisson 
-simulationOutput <- simulateResiduals(fittedModel = glmer(round(Mean.Mobility) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), family = poisson, data=etho), n=500) 
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(Mean.Mobility) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|OLRE), family = poisson, data=etho), n=500) 
 
 plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. 
 testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
-#p.g = 0.94 , p.p < 0.01
+#p.g = 0.94 , p.p = 0.1
 testZeroInflation(simulationOutput) #compare expected vs observed zeros, not zero-inflated if p>0.05.
-#p.g = 1 , p.p = 0.79
+#p.g = 1 , p.p = 0.01
 testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic dependency of the dispersion / variance on another variable in the model" Hartig, https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html), which is indicated if dots aren't on the red line and p<0.05.
-#p.g < 0.01 , p.p < 0.01
-
-#the log(Mean.Mobility+1) brings the uniformity p-val = 0.0445 (from 6.848e-08). Going with log
+#p.g = 0.09 , p.p = 0.08
 plot(simulationOutput)
 
 m1 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho) #full model
@@ -689,9 +698,9 @@ which(theta[diag.element]<1e-5) #looks like clutch and fishname are important
 ### Activity and treatment effects
 ```{r activity & treatment}
 
-m4 = lmerTest::lmer(log(Mean.Mobility+1) ~ Treatment + Age + (1|FishName) + (1|Clutch), data=etho)
+m4 = lmerTest::lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (1|FishName) + (1|Clutch), data=etho)
 summary(m4)
-Anova(m4) # global effect of Treatment and age
+anova(m4) # global effect of Treatment and age
 
 library(emmeans)
 c1 = emmeans(m4, pairwise ~ Treatment,type="response") 
@@ -702,15 +711,24 @@ c1$contrasts %>%
 ## Age: B = -0.10, p = 0; As age/trial number increases, activity level decreases
 
 
-
+etho.red = etho %>%
+  group_by(Age, Treatment) %>%
+  summarise(mean = mean(Mean.Mobility), sd = sd(Mean.Mobility))
 # plot to visualize treatment effect
-act.plot = ggplot(etho, aes(x = Age, y = log(Mean.Mobility+1), color = Treatment))+
-  geom_point(size = 3, alpha = 0.7) +
-  geom_smooth(method = "lm") +
-  theme_bw() +
+act.plot = ggplot(etho.red, aes(x = as.numeric(Age), y = mean, color = Treatment))+
+  geom_pointrange(aes(ymin = mean-sd, ymax = mean+sd),position = position_dodge(width = 7),alpha = 0.6) +
+  geom_smooth(method = "lm",se = F) +
+  theme_classic() +
+  scale_color_manual("Treatment condition",
+    values = c("red","darkgray","black"),
+    labels = c("0" = "Control",
+               "5" = "Low",
+               "25" = "High")) +
   scale_x_continuous(limits=c(0,200),
                      breaks=c(14,21,49,77,105,133,161,189))+
-  ylab("Mean Mobility") + ggtitle("c) Activity")
+  theme(
+    axis.title = element_text(size = 16)) +
+  ylab("Percent change in location per time") + xlab("Age (days)")
 ```
 Treatment affects activity level, but the relationship varies by amount of treatment. Treatment 5 fish are significantly less active than Treatment 25 fish. Neither Treatment is significantly different from Control fish.
 
@@ -975,7 +993,10 @@ ggplot(df_cors, aes(x = Traits, y = Estimate)) +
        scale_x_discrete(limits = c("Activity,Exploration","Activity,Boldness","Boldness, Exploration")) +
        labs(x = "Trait combinations",y = "Correlation (Estimate +/- 95% CIs)") +
        ylim(-1,1) + coord_flip() +
-       theme_classic()
+       theme_classic() +
+  theme(
+    axis.title = element_text(size = 16),
+    axis.text.y = element_text(size = 14)) 
 
 
 ```
