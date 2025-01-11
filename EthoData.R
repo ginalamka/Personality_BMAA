@@ -30,6 +30,16 @@ for(i in 1:nrow(etho)){
 #set Treatment as a factor
 etho$Treatment = as.factor(etho$Treatment)
 
+#get N table, grouped by treatment and age
+# Group and summarize data
+library(dplyr)
+summary_table <- etho %>%
+  group_by(Age, Treatment) %>%
+  summarize(Count = n(), .groups = 'drop')
+
+# Print the resulting table
+print(summary_table)
+
 #put arena size in the dataframe (mm diameter)
 arena = matrix(nrow = nrow(etho), ncol = 1)
 for(j in 1:nrow(etho)){
