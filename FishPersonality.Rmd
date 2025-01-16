@@ -334,7 +334,7 @@ permut = rbind(permut.results, permut.bytrt)
 library(ggplot2)
 library(ggbreak)
 p <- ggplot(etho, aes(x = as.factor(Age), y = log(CumDur.Z2+1), group = FishName, colour = Treatment)) +
-  geom_line(alpha = 0.2,size = 2) +
+  geom_line(alpha = 0.2,linewidth = 2) +
   stat_summary(aes(group = Treatment), geom = "point", fun = mean,
     shape = 17, size = 3) +
   theme_bw()
@@ -350,6 +350,7 @@ summary(e4)
 # interaction between treatment 5 and age is significant at B = -0.23, p = 0.04
 library(ggplot2)
 library(tidyr)
+library(dplyr)
 
 etho.red = etho %>%
   group_by(Age, Treatment) %>%
@@ -368,7 +369,8 @@ exp.plot = ggplot(etho.red, aes(x = as.numeric(Age), y = mean, color = Treatment
  #   labels=c("14","21","49","77","105","133","161","189"),
     breaks = c(14,21,49,77,105,133,161,189))+
   theme(
-    axis.title = element_text(size = 16)) +
+    axis.title = element_text(size = 18),
+    axis.text = element_text(size = 16)) +
   ylab("Proportion of time exploring") + xlab("Age (days)") + labs(color = "Treatment condition")
 exp.plot
 ```
@@ -754,8 +756,9 @@ act.plot = ggplot(etho.red, aes(x = as.numeric(Age), y = mean, color = Treatment
   scale_x_continuous(limits=c(0,200),
                      breaks=c(14,21,49,77,105,133,161,189))+
   theme(
-    axis.title = element_text(size = 16)) +
-  ylab("Percent change in location per time") + xlab("Age (days)")
+    axis.title = element_text(size = 18),
+    axis.text = element_text(size = 16)) +
+  ylab("Percent time active") + xlab("Age (days)")
 ```
 Treatment affects activity level, but the relationship varies by amount of treatment. Treatment 5 fish are significantly less active than Treatment 25 fish. Neither Treatment is significantly different from Control fish.
 
@@ -1017,7 +1020,7 @@ df_cors <- data.frame(Traits = c("Activity,Exploration",
 ggplot(df_cors, aes(x = Traits, y = Estimate)) +
        geom_pointrange(aes(ymin = Lower, ymax = Upper)) +
        geom_hline(yintercept = 0, linetype = "dotted", alpha = 0.3) +
-       scale_x_discrete(limits = c("Activity,Exploration","Activity,Boldness","Boldness, Exploration")) +
+       scale_x_discrete(limits = c("Activity, Exploration","Activity, Boldness","Boldness, Exploration")) +
        labs(x = "Trait combinations",y = "Correlation (Estimate +/- 95% CIs)") +
        ylim(-1,1) + coord_flip() +
        theme_classic() +
