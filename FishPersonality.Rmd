@@ -199,24 +199,26 @@ ggplot(etho[which(etho$Treatment == "0"),], aes(x = FishName, y = LatencyZ2360))
 Time spent in the middle can be the proportion of time spent in the middle (out of trial time = 360 sec; "CumDur.Z2") or the actual number of seconds spent in the middle zone ("CumDurZ2"). Negative binomial fits well to the proportion data. A poisson model with an observation-level random effect fits well to the count data.
 
 ```{r exploration-cumulative duration in the middle}
-#etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
+etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
 etho$trial.time = 360
 etho$OLRE = seq_len(nrow(etho)) #column with observation-level random effect
+etho$Age[which(etho$Age == 15)] <- 14
 etho$scale.age = scale(etho$Age, scale = T, center = T)
 etho$FishName = as.factor(etho$FishName)
 etho$Treatment = as.factor(etho$Treatment)
+
 
 library(DHARMa)
 library(lme4)
 
 # I tried binomial, poisson and negative binomial. Negative binomial and Poisson with Observation-level random effect to account for overdispersion are the only models that passed all model assumption checks.
 #Negative Binomial:
-simulationOutput <- simulateResiduals(fittedModel = glmer.nb(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch), data=etho, control=glmerControl(optimizer="bobyqa",
+simulationOutput <- simulateResiduals(fittedModel = glmer.nb(round(CumDur.Z2) ~ Treatment + scale.age + (scale.age|FishName) + (1|Clutch), data=etho, control=glmerControl(optimizer="bobyqa",
                                  optCtrl=list(maxfun=2e5))), n=250) #add optimizer because otherwise it fails to converge with interaction term
 # fit is singular with Paternity included
 
 #Poisson with Observation-level random effect to account for overdispersion:
-simulationOutput <- simulateResiduals(fittedModel = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = "poisson", data=etho), n=500) #isSingular warning because of Paternity & Clutch
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(CumDur.Z2) ~ Treatment + (scale.age|FishName) + (1|OLRE), family = "poisson", data=etho), n=500) #isSingular warning because of Paternity & Clutch
 
 plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. 
 testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
@@ -233,18 +235,26 @@ plot(simulationOutput)
 
 
 # Double check which variables to include in accordance with above simulation results:
-e1 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity) + (1|OLRE), family = "poisson", data=etho, control=glmerControl(optimizer="bobyqa", #add optimizer because otherwise it fails to converge
+e1 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (scale.age|FishName) + (1|Clutch) + (1|Paternity) + (1|OLRE), family = "poisson", data=etho, control=glmerControl(optimizer="bobyqa", #add optimizer because otherwise it fails to converge
                                  optCtrl=list(maxfun=2e5))) # full model
 theta <- getME(e1, "theta")
 diag.element <- getME(e1, "lower")==0
 which(theta[diag.element]<3e-5)
 #Fit is singular because of clutch and paternity
 
-e2 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = "poisson", data=etho)
-anova(e1,e2) # no difference, proceed with model 2 (results did not change with or without optimizer)
+e2 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (scale.age|FishName) + (1|OLRE), family = "poisson", data=etho,
+           control=glmerControl(optimizer="bobyqa", #add optimizer because otherwise it fails to converge
+                                 optCtrl=list(maxfun=2e5)))
+anova(e1,e2) # no difference, proceed with model 2
 
-e3 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), family = "poisson", data=etho) # no interaction
-anova(e2,e3) # b2 is a significantly better fit. Use e2 in rpt function.
+e3 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + (scale.age|FishName) + (1|OLRE), family = "poisson", data=etho) # no random slope
+anova(e2,e3) # no difference, proceed with simpler model e3 (no random slope).
+
+e4 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|OLRE), family = "poisson", data=etho) 
+anova(e3,e4) # e4 with treatment by age interaction accounts for more variance
+
+e45 = glmer(round(CumDur.Z2) ~ Treatment + scale.age + (1|FishName) + (1|OLRE), family = "poisson", data=etho) 
+anova(e3,e4)
 
 #### rptR package for repeatability estimate
 library(rptR)
@@ -256,7 +266,10 @@ rptE # R = 0.10 but se = 0 and CI is 0.10-0.10 so something is wrong here.
 #https://juliengamartin.github.io/wam_tuto/mcmcglmm-1.html
 #examples in the lit: https://doi.org/10.1007/s00265-019-2637-4 ; https://doi.org/10.1111/jeb.13701
 library(MCMCglmm)
-prior = list(R=list(R1=list(V=1,nu=0.002)), G=list(G1=list(V=1,nu=0.002))) #weak priors
+prior = list(R=list(R1=list(V=1,nu=0.002),
+                    R2=list(V=1,nu=0.002),
+                    R3=list(V=1,nu=0.002)), 
+             G=list(G1=list(V=1,nu=0.002))) #weak priors
 mc1 = MCMCglmm(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age, random = ~FishName, family = "poisson", data = etho,
                verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
 plot(mc1) #all chains look good
@@ -316,23 +329,25 @@ permut.results$type = "combined"
 permut.bytrt$type = "by treatment"
 permut = rbind(permut.results, permut.bytrt)
 
+
+# visualize fish change in exploration over time as a function of treatment
 library(ggplot2)
 library(ggbreak)
-p <- ggplot(permut.bytrt, aes(x = Repeatability)) +
-  geom_histogram(binwidth = 0.0001)+
-  #facet_wrap(~type)+
-  geom_vline(xintercept = 0.12, color = "red") +
-  theme_classic() 
-p+scale_x_break(c(0.0021,0.12), scales = "free", ticklabels = 0.12)
-## I cannot get this plot to look how I want it to. The point is that no matter whether we permute across all data or permute data within treatment, the observed repeatability value is way larger than the permuted repeatability value.
+p <- ggplot(etho, aes(x = as.factor(Age), y = log(CumDur.Z2+1), group = FishName, colour = Treatment)) +
+  geom_line(alpha = 0.2,size = 2) +
+  stat_summary(aes(group = Treatment), geom = "point", fun = mean,
+    shape = 17, size = 3) +
+  theme_bw()
+  
+
 
 ```
 
 ### Exploration and treatment effects
 ```{r exploration & treatment}
-summary(mc1)
+summary(e4)
 # Main effects of treatment and age are not significant.
-# interaction between treatment 5 and age is significant at B = -0.23, p = 0.05
+# interaction between treatment 5 and age is significant at B = -0.23, p = 0.04
 library(ggplot2)
 library(tidyr)
 
@@ -369,10 +384,11 @@ Any latency variable, especially those with ceiling values, are most appropriate
 ```{r boldness-survival analysis for latency to enter the middle}
 etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
 #etho$OLRE = seq_len(nrow(etho)) #column with observation-level random effect
+#etho$Age[which(etho$Age == "15")]<-"14"
 #etho$scale.age = scale(etho$Age, scale = T, center = T)
 #etho$FishName = as.factor(etho$FishName)
 #etho$Treatment = as.factor(etho$Treatment)
-#etho$Age[which(etho$Age == "15")]<-"14"
+
 
 ### Use LatencyZ2360 - which gives a ceiling value to those fish that never entered the center (10% of data) ###
 
@@ -536,9 +552,15 @@ coxme_icc_ci <- function(model, upper.multiplier = 10) {
 
 library(coxme)
 etho$event = ifelse(etho$LatencyZ2360 == 360,0,1)
-b1 = coxme(Surv(LatencyZ2360,event)~Treatment + scale.age + (1|FishName), data = etho) # coxme_icc function can only handle 1 random effect
-coxme_pval(b1,etho,boot=100) #  p < 0.01
-coxme_icc_ci(b1, upper.multiplier = 10) # ICC = 0.09 (0.05-0.13)
+b1 = coxme(Surv(LatencyZ2360,event)~Treatment + scale.age + Treatment*scale.age + (scale.age|FishName), data = etho) # coxme_icc function can only handle 1 random effect
+b2 = coxme(Surv(LatencyZ2360,event)~Treatment + scale.age + (scale.age|FishName), data = etho)
+anova(b1,b2) # no difference, exclude interaction term
+b3 = coxme(Surv(LatencyZ2360,event)~Treatment + scale.age + (1|FishName), data = etho)
+anova(b2,b3) # random slope significantly adds to variance explained
+
+# Takes a while to run: coxme(Surv(LatencyZ2360,event)~Treatment + scale.age + (scale.age|FishName)
+coxme_pval(b3,etho,boot=100) #  p = 0.01
+coxme_icc_ci(b3, upper.multiplier = 10) # ICC = 0.04 (0.01-0.08)
 
 
 ```
@@ -552,9 +574,10 @@ hist(etho$LatencyZ2360) # could be poisson
 hist(log(etho$LatencyZ2360+1))
 
 #Poisson 
-simulationOutput <- simulateResiduals(fittedModel = glmer(round(LatencyZ2360) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), family = poisson, data=etho), n=500) 
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(LatencyZ2360) ~ Treatment + scale.age + Treatment*scale.age + (scale.age|FishName) + (1|OLRE), family = poisson, data=etho,control=glmerControl(optimizer="bobyqa", #add optimizer because otherwise it fails to converge
+                                 optCtrl=list(maxfun=2e5))), n=500) 
 #Gaussian
-simulationOutput <- simulateResiduals(fittedModel = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho), n=500)
+simulationOutput <- simulateResiduals(fittedModel = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + Treatment*scale.age + (scale.age|FishName) + (1|Clutch) + (1|Paternity), data=etho), n=500)
 
 plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. 
 testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
@@ -566,27 +589,36 @@ testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic de
 plot(simulationOutput)
 
 
-l1 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho) #full model
-l2 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch), data=etho)
+l1 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + Treatment*scale.age + (scale.age|FishName) + (1|Clutch) + (1|Paternity), data=etho) #full model
+l2 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + Treatment*scale.age + (scale.age|FishName) + (1|Clutch), data=etho)
 anova(l1,l2) #no difference, use simpler model (l2)
 VarCorr(l2) #Random effects and residual variance
 
-l3 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), data=etho)
+l3 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + Treatment*scale.age + (scale.age|FishName), data=etho)
 anova(l2,l3) #l2 is better
 
-l4 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + (1|FishName) + (1|Clutch), data=etho)
+l4 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + (scale.age|FishName) + (1|Clutch), data=etho)
 anova(l2,l4) #no difference, use simpler model (l4)
 
 l5 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + (1|Clutch), data=etho) # does FishName account for significant amount of variance?
 anova(l5,l4) #model with both is better
 
+l6 = lmer(log(LatencyZ2360+1) ~ Treatment + scale.age + (1|FishName) + (1|Clutch), data=etho)
+anova(l4,l6) #l4 significantly better, random slope adds to variance explained
 
-l.rpt = rpt(log(LatencyZ2360+1) ~ Treatment + scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho, grname = "FishName", nboot = 500, npermut = 500) #singular fit warning with or without Clutch
+l.rpt = rpt(log(LatencyZ2360+1) ~ Treatment + scale.age + (scale.age|FishName) + (1|Clutch), datatype = "Gaussian", data=etho, grname = "FishName", nboot = 500, npermut = 500) #singular fit warning with or without Clutch
 l.rpt
-# R = 0.07 (0.03-0.13)
+# R = 0.10 (0.06-0.16)
 # p.LRT and p.permute < 0.01
 
 plot(l.rpt, type = "permut")
+
+#random slope plot
+b <- ggplot(etho, aes(x = as.factor(Age), y = log(LatencyZ2360+1), group = FishName, colour = Treatment)) +
+  geom_line(alpha = 0.2,size = 2) +
+  stat_summary(aes(group = Treatment), geom = "point", fun = mean,
+    shape = 17, size = 3) +
+  theme_bw()
 
 ```
 
@@ -594,26 +626,18 @@ plot(l.rpt, type = "permut")
 ### Boldness and treatment effects
 ```{r boldness & treatment}
 
-summary(b1) # survival model
-# significant effect of age
+summary(b2) # survival model
+# No effect of treatment. Significant effect of age ß = 0.24, p < 0.05
+nlme::VarCorr(b2)
+# fish ID and age R = 0.07
 
-#library(car)
-#summary(l4) # need to calculate p-values
-#Anova(l4, test="F")
-
-
-#library(nlme)
-#l4.nlme = lme(log(LatencyZ2360+1) ~ Treatment + scale.age, random = list(~ 1|FishName,
-    #                                                                     ~ 1|Clutch), data=etho)
-#summary(l4.nlme)
-# no treatment effects. Significant Age effect suggesting habituation (as fish experienced more trials/got older, latency to enter the center decreased)
 
 # plot to visualize treatment effect
 library(survminer)
 b.plot.sfit = survfit(Surv(LatencyZ2360, event)~Treatment, data = etho)
 bsurv.plot = ggsurvplot(b.plot.sfit, data = etho, fun = 'event', 
                        risk.table = F, pval = F, palette = c("red","#999999","black"), 
-                       xlab = "Latency to enter the center (sec)", 
+                       xlab = "Latency to enter the risky area (sec)", 
                        ylab = "Proportion of fish", size = 1.5, 
                        font.x = 16, font.y = 16,
                        legend = c(0.7,0.2),legend.title = "Treatment condition",legend.labs = c("Control","Low","High"))
@@ -621,7 +645,7 @@ bsurv.plot = ggsurvplot(b.plot.sfit, data = etho, fun = 'event',
 b.plot.sfit2 = survfit(Surv(LatencyZ2360, event)~as.numeric(Age), data = etho)
 bsurv.plot2 = ggsurvplot(b.plot.sfit2, data = etho, fun = 'event', 
                        risk.table = F, pval = F,  
-                       xlab = "Latency to enter the center (sec)", 
+                       xlab = "Latency to enter the risky area (sec)", 
                        ylab = "Proportion of fish", size = 1.5, 
                        font.x = 16, font.y = 16, font.legend = 16,
                        legend = c(0.7,0.3), legend.title = "Age (days)",legend.labs = c(14,21,49,77,105,133,161,189),
@@ -652,9 +676,9 @@ library(rptR)
 hist(etho$Mean.Mobility) # looks good
 
 #Gaussian
-simulationOutput <- simulateResiduals(fittedModel = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch), data=etho), n=500)
+simulationOutput <- simulateResiduals(fittedModel = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (scale.age|FishName) + (1|Clutch), data=etho), n=500)
 #Poisson 
-simulationOutput <- simulateResiduals(fittedModel = glmer(round(Mean.Mobility) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|OLRE), family = poisson, data=etho), n=500) 
+simulationOutput <- simulateResiduals(fittedModel = glmer(round(Mean.Mobility) ~ Treatment + scale.age + (scale.age|FishName) + (1|Clutch) + (1|OLRE), family = poisson, data=etho), n=500) 
 
 plot(simulationOutput$scaledResiduals) #Expect a flat distribution of the overall residuals, and uniformity in y direction if plotted against any predictor. 
 testDispersion(simulationOutput) #if under- or over-dispersed, then p-value<0.05, but then check the dispersion parameter and try to determine what in the model could be the cause and address it there, also check for zero inflation.
@@ -665,24 +689,21 @@ testUniformity(simulationOutput) #check for heteroscedasticity ("a systematic de
 #p.g = 0.09 , p.p = 0.08
 plot(simulationOutput)
 
-m1 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch) + (1|Paternity), data=etho) #full model
-m2 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName) + (1|Clutch), data=etho)
+m1 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (scale.age|FishName) + (1|Clutch) + (1|Paternity), data=etho) #full model
+m2 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (scale.age|FishName) + (1|Clutch), data=etho)
 anova(m1,m2) #no difference, use simpler model (m2)
 
-m3 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + Treatment*scale.age + (1|FishName), data=etho)
+m3 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (scale.age|FishName), data=etho)
 anova(m2,m3) #m2 is better
 
 m4 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (1|FishName) + (1|Clutch), data=etho)
-anova(m2,m4) #no difference, use simpler model (m4)
+anova(m2,m4) #m2 is better, significant improvement with random slope
 
 m5 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (1|Clutch), data=etho) # does FishName account for significant amount of variance?
-anova(m5,m4) #m4 is better - accounts for somethin!
-
-m6 = lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (1|FishName), data=etho) # does Clutch account for significant amount of variance?
-anova(m4,m6) #m4 is better - accounts for somethin!
+anova(m5,m2) #m2 is better - accounts for somethin!
 
 
-m.rpt = rpt(log(Mean.Mobility+1) ~ Treatment + scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho, grname = c("FishName","Clutch"), nboot = 500, npermut = 500) #singular fit warning with or without Clutch
+m.rpt = rpt(log(Mean.Mobility+1) ~ Treatment + scale.age + (scale.age|FishName) + (1|Clutch), datatype = "Gaussian", data=etho, grname = c("FishName","Clutch"), nboot = 500, npermut = 500) #singular fit warning with or without Clutch
 m.rpt
 # R = 0.13 (0.07-0.18)
 # p.LRT and p.permute < 0.01
@@ -693,17 +714,23 @@ theta <- getME(m4, "theta")
 diag.element <- getME(m4, "lower")==0
 which(theta[diag.element]<1e-5) #looks like clutch and fishname are important
 
+#random slope plot
+a <- ggplot(etho, aes(x = as.factor(Age), y = log(Mean.Mobility+1), group = FishName, colour = Treatment)) +
+  geom_line(alpha = 0.2,size = 2) +
+  stat_summary(aes(group = Treatment), geom = "point", fun = mean,
+    shape = 17, size = 3) +
+  theme_bw()
 ```
 
 ### Activity and treatment effects
 ```{r activity & treatment}
 
-m4 = lmerTest::lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (1|FishName) + (1|Clutch), data=etho)
-summary(m4)
-anova(m4) # global effect of Treatment and age
+m2 = lmerTest::lmer(log(Mean.Mobility+1) ~ Treatment + scale.age + (scale.age|FishName) + (1|Clutch), data=etho)
+summary(m2)
+anova(m2) # global effect of Treatment and age
 
 library(emmeans)
-c1 = emmeans(m4, pairwise ~ Treatment,type="response") 
+c1 = emmeans(m2, pairwise ~ Treatment,type="response") 
 plot(c1$emmeans) 
 c1$contrasts %>%
      summary(infer = TRUE)
@@ -742,7 +769,7 @@ comb.plot
 ```
 
 ## Why are repeatability values so low?
-
+R is higher when random slope is included. 
 ```{r visualizing variance components}
 #Cumulative duration in the center
 ggplot(etho, aes(x = reorder(FishName,CumDur.Z2,mean), y = log(CumDur.Z2+1), color = Treatment)) +
