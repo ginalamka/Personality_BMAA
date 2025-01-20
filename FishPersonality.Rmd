@@ -896,21 +896,21 @@ bl.long = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName),
 bh.long = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
                  data = etho[which(etho$term == "long" & etho$Treatment == "25"),])
 
-coxme_icc_ci(bc.short, upper.multiplier = 10) # ICC = 
-coxme_icc_ci(bl.short, upper.multiplier = 10) # ICC = 
-coxme_icc_ci(bh.short, upper.multiplier = 10) # ICC = 
+coxme_icc_ci(bc.short, upper.multiplier = 10) 
+coxme_icc_ci(bl.short, upper.multiplier = 10) 
+coxme_icc_ci(bh.short, upper.multiplier = 10) 
 
 coxme_icc_ci(bc.long, upper.multiplier = 10)
 coxme_icc_ci(bl.long, upper.multiplier = 10)
 coxme_icc_ci(bh.long, upper.multiplier = 10)
 
-coxme_pval(bc.short,etho[which(etho$term == "short"),],boot=100)#  p
-coxme_pval(bl.short,etho[which(etho$term == "short"),],boot=100)#  p
-coxme_pval(bh.short,etho[which(etho$term == "short"),],boot=100)#  p
+coxme_pval(bc.short,etho[which(etho$term == "short"),],boot=100)
+coxme_pval(bl.short,etho[which(etho$term == "short"),],boot=100)
+coxme_pval(bh.short,etho[which(etho$term == "short"),],boot=100)
 
-coxme_pval(bc.long,etho[which(etho$term == "long"),],boot=100) # p 
-coxme_pval(bl.long,etho[which(etho$term == "long"),],boot=100) # p
-coxme_pval(bh.long,etho[which(etho$term == "long"),],boot=100) # p
+coxme_pval(bc.long,etho[which(etho$term == "long"),],boot=100) 
+coxme_pval(bl.long,etho[which(etho$term == "long"),],boot=100) 
+coxme_pval(bh.long,etho[which(etho$term == "long"),],boot=100) 
 
 #activity
 ac.short = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term == "short" & etho$Treatment == "0"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500)
@@ -948,36 +948,22 @@ tdata$Treatment = factor(tdata$Treatment, levels = c("control","low","high"))
 tdata$Trait = factor(tdata$Trait, levels = c("Boldness", "Exploration", "Activity"))
 cols = c("control"= "red","low" = "#999999","high" = "black")
 
-term.plot = ggplot(tdata, aes(x = Trait, y = Repeatability, color = Treatment)) +
-  facet_wrap(~Term) +
+term.plot = ggplot(tdata, aes(x = Term, y = Repeatability, color = Treatment)) +
+  facet_wrap(~Trait) +
   geom_pointrange(aes(ymin = LCI, ymax = UCI), 
-                  position = position_dodge2(width = c(0.3,0.3,0.3))) +
+                  position = position_dodge2(width = c(0.3,0.3))) +
   scale_color_manual(values = cols) +
   theme_classic() +
   theme(
     axis.title = element_text(size = 18),
     axis.text = element_text(size = 16),
     strip.text = element_text(size = 16)) +
-  ylab("Repeatability") + xlab("Personality trait")
+  ylab("Repeatability") + xlab("Duration since BMAA exposure")
 
 
 
 ##### Stats ######
 #Bootstrapping - randomly sample 1000 values from predicted distribution of short and long term of each personality trait from the model. Line up samples as 2 vectors, one from short and one from long. What proportion of the time is the short value smaller than the long values? If more than 95% of the time, then it's significantly different.
-
-
-
-
-  e.short <- MCMCglmm(round(CumDur.Z2) ~ Treatment + scale.age + Treatment*scale.age, random = ~FishName, family = "poisson", data = tmp,
-               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
-
-rptFunc = function(x){
-  stat = x$VCV[,"FishName"]/(x$VCV[,"FishName"]+x$VCV[,"units"])
-  return(stat)
-}
-
-test = bootMer(a.short, FUN=rptFunc, nsim=2)
-########
 
 ### exploration
 #ec.short, el.short, eh.short, ec.long, el.long, eh.long
@@ -1016,7 +1002,73 @@ high$diff = ifelse(high$short < high$long, 0,1)
 table(high$diff) # 2748 0s, 152 1s
 2748/2900 #95% of short data are less than long data, if I sort short/long vectors than 100% of matched pairs the short is less than the long.
 
-### boldness
+### boldness - comparing predicted values from the coxme fit
+# How do rpt values of log latency compare to survival model? R = 0.09, CI = 0.05-0.13
+bold = MCMCglmm(log(LatencyZ2360+1) ~ Treatment + scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho,
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+rpt.bold <- bold$VCV[,"FishName"]/(bold$VCV[,"FishName"]+bold$VCV[,"units"]) 
+mean(rpt.bold) # R=0.10 
+HPDinterval(rpt.bold ) # CI=0.06-0.16
+# rpt and CI very similar between Gaussian and survival model. We don't know how to do a randomization test with a survival model, so we will use the Gaussian distribution in a Bayesian framework.
+
+#control
+bc.short = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term == "short" & etho$Treatment == "0"),],
+               verbose=F, prior=prior, nitt=103000, thin=20, burnin=5000)
+rpt.bcshort <- bc.short$VCV[,"FishName"]/(bc.short$VCV[,"FishName"]+bc.short$VCV[,"units"]) 
+mean(rpt.bcshort)
+HPDinterval(rpt.bcshort)
+
+bc.long = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term == "long" & etho$Treatment == "0"),],
+               verbose=F, prior=prior, nitt=103000, thin=20, burnin=5000)
+rpt.bclong <- bc.long$VCV[,"FishName"]/(bc.long$VCV[,"FishName"]+bc.long$VCV[,"units"]) 
+mean(rpt.bclong)
+HPDinterval(rpt.bclong)
+
+cont = data.frame(cbind(sort(rpt.bcshort),sort(rpt.bclong)))
+colnames(cont) = c("short","long")
+cont$diff = ifelse(cont$short < cont$long, 0,1)
+table(cont$diff)
+# 100% of short rpt values less than long values
+
+#low
+bl.short = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term == "short" & etho$Treatment == "5"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+rpt.blshort <- bl.short$VCV[,"FishName"]/(bl.short$VCV[,"FishName"]+bl.short$VCV[,"units"]) 
+
+bl.long = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term == "long" & etho$Treatment == "5"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+rpt.bllong <- bl.long$VCV[,"FishName"]/(bl.long$VCV[,"FishName"]+bl.long$VCV[,"units"]) 
+
+
+low = data.frame(cbind(sort(rpt.blshort),sort(rpt.bllong)))
+colnames(low) = c("short","long")
+low$diff = ifelse(low$short < low$long, 0,1)
+table(low$diff)
+# 100% of short rpt values less than long values
+
+#high
+bh.short = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term == "short" & etho$Treatment == "25"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+rpt.bhshort <- bh.short$VCV[,"FishName"]/(bh.short$VCV[,"FishName"]+bh.short$VCV[,"units"]) 
+
+bh.long = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term == "long" & etho$Treatment == "25"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+rpt.bhlong <- bh.long$VCV[,"FishName"]/(bh.long$VCV[,"FishName"]+bh.long$VCV[,"units"]) 
+
+
+high = data.frame(cbind(sort(rpt.bhshort),sort(rpt.bhlong)))
+colnames(high) = c("short","long")
+high$diff = ifelse(high$short < high$long, 0,1)
+table(high$diff) # >99% of short values are less than long values. p = 0.001
+
+
 
 ### activity - use MCMCglmm to get posterior distribution
 prior2 = list(R=list(R1=list(V=1,nu=0.002),
@@ -1039,7 +1091,7 @@ p1 <- hist(rpt.acshort)
 p2 <- hist(rpt.aclong)                     
 plot( p1, col=rgb(0,0,1,1/4), xlim=c(0,0.6))  
 plot( p2, col=rgb(1,0,0,1/4), xlim=c(0,0.6), add=T) # distributions barely overlapping
-cont = data.frame(cbind(sort(rpt.acshort),sort(rpt.aclong)))
+cont = data.frame(cbind(rpt.acshort,rpt.aclong))
 colnames(cont) = c("short","long")
 cont$diff = ifelse(cont$short < cont$long, 0,1)
 table(cont$diff) # almost 100% of short values are lower than long values, with and without sorting the vectors
