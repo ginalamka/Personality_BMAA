@@ -664,12 +664,12 @@ Mobility is our measure of activity. This variable describes the percentage of p
 
 Because we are not using variance in turning angle as a measure of exploration anymore, no need to include it as a covariate.
 ```{r activity- mobility}
-#etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
-#etho$FishName = as.factor(etho$FishName)
-#etho$Treatment = as.factor(etho$Treatment)
-#etho$Age[which(etho$Age == 15)]<-14
-#etho$Age = as.numeric(etho$Age)
-#etho$scale.age = scale(etho$Age, scale = T, center = T)
+etho = read.csv("/Users/kelseymccune/Documents/GitHub/Personality_BMAA/EthoData_updated.csv", header=T, sep=",", stringsAsFactors=F)
+etho$FishName = as.factor(etho$FishName)
+etho$Treatment = as.factor(etho$Treatment)
+etho$Age[which(etho$Age == 15)]<-14
+etho$Age = as.numeric(etho$Age)
+etho$scale.age = scale(etho$Age, scale = T, center = T)
 
 library(DHARMa)
 library(lme4)
@@ -772,11 +772,14 @@ comb.plot
 ```
 
 
-## Evidence for short-term effects of BMAA?
+## Evidence for acute or chronic effects of BMAA?
 Splitting data into early (days 14 - 77) and late trials (days 105 - 189) to test whether BMAA affected behavior during and shortly after exposure, compared to longer-term post exposure. In other words, maybe there was an acute impact of BMAA on behavior but no developmental effects causing long-term changes.
 ```{r short-term effects}
 etho$term = ifelse(etho$Age == 14 | etho$Age == 21 | etho$Age == 49 | etho$Age == 77, "short", "long")
+etho$term2 = ifelse(etho$Age == 14 | etho$Age == 21 | etho$Age == 49, "short","long")
+etho$term3 = ifelse(etho$Age == 14 | etho$Age == 21, "short","long")
 
+## Repeatability by term with Treatments combined
 #exploration
 library(MCMCglmm)
 prior = list(R=list(R1=list(V=1,nu=0.002),
@@ -845,37 +848,97 @@ prior = list(R=list(R1=list(V=1,nu=0.002),
 el.short = MCMCglmm(round(CumDur.Z2) ~ scale.age, random = ~FishName, family = "poisson", data = etho[which(etho$term == "short" & etho$Treatment == "5"),],
                verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
 repeata <- el.short$VCV[,"FishName"]/(el.short$VCV[,"FishName"]+el.short$VCV[,"units"]) 
-mean(repeata)  
-HPDinterval(repeata, 0.95) 
+mean(repeata)  # R = 0.05
+HPDinterval(repeata, 0.95) # CI = 0.0001-0.19
+el.short2 = MCMCglmm(round(CumDur.Z2) ~ scale.age, random = ~FishName, family = "poisson", data = etho[which(etho$term2 == "short" & etho$Treatment == "5"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+repeata <- el.short2$VCV[,"FishName"]/(el.short2$VCV[,"FishName"]+el.short2$VCV[,"units"]) 
+mean(repeata)  # R = 0.13
+HPDinterval(repeata, 0.95) # CI = 0.0002-0.36
+el.short3 = MCMCglmm(round(CumDur.Z2) ~ scale.age, random = ~FishName, family = "poisson", data = etho[which(etho$term3 == "short" & etho$Treatment == "5"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+repeata <- el.short3$VCV[,"FishName"]/(el.short3$VCV[,"FishName"]+el.short3$VCV[,"units"]) 
+mean(repeata)  # R = 0.07
+HPDinterval(repeata, 0.95) # CI = 0.0002-0.30
 
 eh.short = MCMCglmm(round(CumDur.Z2) ~ scale.age, random = ~FishName, family = "poisson", data = etho[which(etho$term == "short" & etho$Treatment == "25"),],
                verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
 repeata <- eh.short$VCV[,"FishName"]/(eh.short$VCV[,"FishName"]+eh.short$VCV[,"units"]) 
-mean(repeata)  
-HPDinterval(repeata, 0.95) 
+mean(repeata)  # R = 0.03
+HPDinterval(repeata, 0.95) # CI = 0-0.14
+eh.short2 = MCMCglmm(round(CumDur.Z2) ~ scale.age, random = ~FishName, family = "poisson", data = etho[which(etho$term2 == "short" & etho$Treatment == "25"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+repeata <- eh.short2$VCV[,"FishName"]/(eh.short2$VCV[,"FishName"]+eh.short2$VCV[,"units"]) 
+mean(repeata) # R = 0.08 
+HPDinterval(repeata, 0.95) # CI = 0.0001-0.28
+eh.short3 = MCMCglmm(round(CumDur.Z2) ~ scale.age, random = ~FishName, family = "poisson", data = etho[which(etho$term3 == "short" & etho$Treatment == "25"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+repeata <- eh.short3$VCV[,"FishName"]/(eh.short3$VCV[,"FishName"]+eh.short3$VCV[,"units"]) 
+mean(repeata)  # R = 0.26
+HPDinterval(repeata, 0.95) # CI = 0-0.57
 
 ec.short = MCMCglmm(round(CumDur.Z2) ~ scale.age, random = ~FishName, family = "poisson", data = etho[which(etho$term == "short" & etho$Treatment == "0"),],
                verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
 repeata <- ec.short$VCV[,"FishName"]/(ec.short$VCV[,"FishName"]+ec.short$VCV[,"units"]) 
+mean(repeata) # R = 0.12 
+HPDinterval(repeata, 0.95) 
+ec.short2 = MCMCglmm(round(CumDur.Z2) ~ scale.age, random = ~FishName, family = "poisson", data = etho[which(etho$term2 == "short" & etho$Treatment == "0"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+repeata <- ec.short2$VCV[,"FishName"]/(ec.short2$VCV[,"FishName"]+ec.short2$VCV[,"units"]) 
+mean(repeata)  
+HPDinterval(repeata, 0.95) 
+ec.short3 = MCMCglmm(round(CumDur.Z2) ~ scale.age, random = ~FishName, family = "poisson", data = etho[which(etho$term3 == "short" & etho$Treatment == "0"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+repeata <- ec.short3$VCV[,"FishName"]/(ec.short3$VCV[,"FishName"]+ec.short3$VCV[,"units"]) 
 mean(repeata)  
 HPDinterval(repeata, 0.95) 
 
 el.long = MCMCglmm(round(CumDur.Z2) ~ scale.age , random = ~FishName, family = "poisson", data = etho[which(etho$term == "long" & etho$Treatment == "5"),],
                verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
 repeata <- el.long$VCV[,"FishName"]/(el.long$VCV[,"FishName"]+el.long$VCV[,"units"]) 
-mean(repeata) # Repeatability: 
+mean(repeata) # R = 0.30
+HPDinterval(repeata, 0.95)
+el.long2 = MCMCglmm(round(CumDur.Z2) ~ scale.age , random = ~FishName, family = "poisson", data = etho[which(etho$term2 == "long" & etho$Treatment == "5"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+repeata <- el.long2$VCV[,"FishName"]/(el.long2$VCV[,"FishName"]+el.long2$VCV[,"units"]) 
+mean(repeata) # R 
+HPDinterval(repeata, 0.95)
+el.long3 = MCMCglmm(round(CumDur.Z2) ~ scale.age , random = ~FishName, family = "poisson", data = etho[which(etho$term3 == "long" & etho$Treatment == "5"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+repeata <- el.long3$VCV[,"FishName"]/(el.long3$VCV[,"FishName"]+el.long3$VCV[,"units"]) 
+mean(repeata) # R 
 HPDinterval(repeata, 0.95)
 
 eh.long = MCMCglmm(round(CumDur.Z2) ~ scale.age , random = ~FishName, family = "poisson", data = etho[which(etho$term == "long" & etho$Treatment == "25"),],
                verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
 repeata <- eh.long$VCV[,"FishName"]/(eh.long$VCV[,"FishName"]+eh.long$VCV[,"units"]) 
-mean(repeata) # Repeatability: 
+mean(repeata) # R = 0.27
+HPDinterval(repeata, 0.95)
+eh.long2 = MCMCglmm(round(CumDur.Z2) ~ scale.age , random = ~FishName, family = "poisson", data = etho[which(etho$term2 == "long" & etho$Treatment == "25"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+repeata <- eh.long2$VCV[,"FishName"]/(eh.long2$VCV[,"FishName"]+eh.long2$VCV[,"units"]) 
+mean(repeata) # R =0.21 
+HPDinterval(repeata, 0.95)
+eh.long3 = MCMCglmm(round(CumDur.Z2) ~ scale.age , random = ~FishName, family = "poisson", data = etho[which(etho$term3 == "long" & etho$Treatment == "25"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+repeata <- eh.long3$VCV[,"FishName"]/(eh.long3$VCV[,"FishName"]+eh.long3$VCV[,"units"]) 
+mean(repeata) # R = 0.12
 HPDinterval(repeata, 0.95)
 
 ec.long = MCMCglmm(round(CumDur.Z2) ~ scale.age , random = ~FishName, family = "poisson", data = etho[which(etho$term == "long" & etho$Treatment == "0"),],
                verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
 repeata <- ec.long$VCV[,"FishName"]/(ec.long$VCV[,"FishName"]+ec.long$VCV[,"units"]) 
-mean(repeata) # Repeatability: 
+mean(repeata) # R = 0.13 
+HPDinterval(repeata, 0.95)
+ec.long2 = MCMCglmm(round(CumDur.Z2) ~ scale.age , random = ~FishName, family = "poisson", data = etho[which(etho$term2 == "long" & etho$Treatment == "0"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+repeata <- ec.long2$VCV[,"FishName"]/(ec.long2$VCV[,"FishName"]+ec.long2$VCV[,"units"]) 
+mean(repeata) # R = 0.12
+HPDinterval(repeata, 0.95)
+ec.long3 = MCMCglmm(round(CumDur.Z2) ~ scale.age , random = ~FishName, family = "poisson", data = etho[which(etho$term3 == "long" & etho$Treatment == "0"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+repeata <- ec.long3$VCV[,"FishName"]/(ec.long3$VCV[,"FishName"]+ec.long3$VCV[,"units"]) 
+mean(repeata) # R = 0.14
 HPDinterval(repeata, 0.95)
 
 #boldness
@@ -883,26 +946,70 @@ library(coxme)
 etho$event = ifelse(etho$LatencyZ2360 == 360,0,1)
 bc.short = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
                  data = etho[which(etho$term == "short" & etho$Treatment == "0"),]) 
+bc.short2 = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
+                 data = etho[which(etho$term2 == "short" & etho$Treatment == "0"),]) 
+bc.short3 = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
+                 data = etho[which(etho$term3 == "short" & etho$Treatment == "0"),]) 
+
 bl.short = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
                  data = etho[which(etho$term == "short" & etho$Treatment == "5"),])
+bl.short2 = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
+                 data = etho[which(etho$term2 == "short" & etho$Treatment == "5"),])
+bl.short3 = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
+                 data = etho[which(etho$term3 == "short" & etho$Treatment == "5"),])
+
 bh.short = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
                  data = etho[which(etho$term == "short" & etho$Treatment == "25"),])
+bh.short2 = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
+                 data = etho[which(etho$term2 == "short" & etho$Treatment == "25"),])
+bh.short3 = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
+                 data = etho[which(etho$term3 == "short" & etho$Treatment == "25"),])
 
 
 bc.long = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
                  data = etho[which(etho$term == "long" & etho$Treatment == "0"),])
+bc.long2 = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
+                 data = etho[which(etho$term2 == "long" & etho$Treatment == "0"),])
+bc.long3 = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
+                 data = etho[which(etho$term3 == "long" & etho$Treatment == "0"),])
+
 bl.long = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
                  data = etho[which(etho$term == "long" & etho$Treatment == "5"),])
+bl.long2 = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
+                 data = etho[which(etho$term2 == "long" & etho$Treatment == "5"),])
+bl.long3 = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
+                 data = etho[which(etho$term3 == "long" & etho$Treatment == "5"),])
+
 bh.long = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
                  data = etho[which(etho$term == "long" & etho$Treatment == "25"),])
+bh.long2 = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
+                 data = etho[which(etho$term2 == "long" & etho$Treatment == "25"),])
+bh.long3 = coxme(Surv(LatencyZ2360,event)~scale.age + (1|FishName), 
+                 data = etho[which(etho$term3 == "long" & etho$Treatment == "25"),])
 
 coxme_icc_ci(bc.short, upper.multiplier = 10) 
+coxme_icc_ci(bc.short2, upper.multiplier = 10) 
+coxme_icc_ci(bc.short3, upper.multiplier = 10) 
+
 coxme_icc_ci(bl.short, upper.multiplier = 10) 
-coxme_icc_ci(bh.short, upper.multiplier = 10) 
+coxme_icc_ci(bl.short2, upper.multiplier = 10) 
+coxme_icc_ci(bl.short3, upper.multiplier = 10) 
+
+coxme_icc_ci(bh.short, upper.multiplier = 10)
+coxme_icc_ci(bh.short2, upper.multiplier = 10)
+coxme_icc_ci(bh.short3, upper.multiplier = 10)
 
 coxme_icc_ci(bc.long, upper.multiplier = 10)
+coxme_icc_ci(bc.long2, upper.multiplier = 10)
+coxme_icc_ci(bc.long3, upper.multiplier = 10)
+
 coxme_icc_ci(bl.long, upper.multiplier = 10)
+coxme_icc_ci(bl.long2, upper.multiplier = 10)
+coxme_icc_ci(bl.long3, upper.multiplier = 10)
+
 coxme_icc_ci(bh.long, upper.multiplier = 10)
+coxme_icc_ci(bh.long2, upper.multiplier = 10)
+coxme_icc_ci(bh.long3, upper.multiplier = 10)
 
 coxme_pval(bc.short,etho[which(etho$term == "short"),],boot=100)
 coxme_pval(bl.short,etho[which(etho$term == "short"),],boot=100)
@@ -913,14 +1020,31 @@ coxme_pval(bl.long,etho[which(etho$term == "long"),],boot=100)
 coxme_pval(bh.long,etho[which(etho$term == "long"),],boot=100) 
 
 #activity
+library(rptR)
 ac.short = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term == "short" & etho$Treatment == "0"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500)
+ac.short2 = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term2 == "short" & etho$Treatment == "0"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500)
+ac.short3 = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term3 == "short" & etho$Treatment == "0"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500)
+
 al.short = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term == "short" & etho$Treatment == "5"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500)
+al.short2 = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term2 == "short" & etho$Treatment == "5"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500)
+al.short3 = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term3 == "short" & etho$Treatment == "5"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500)
+
 ah.short = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term == "short" & etho$Treatment == "25"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500)
+ah.short2 = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term2 == "short" & etho$Treatment == "25"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500)
+ah.short3 = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term3 == "short" & etho$Treatment == "25"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500)
 
 
 ac.long = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term == "long" & etho$Treatment == "0"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500) 
+ac2.long = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term2 == "long" & etho$Treatment == "0"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500) 
+ac3.long = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term3 == "long" & etho$Treatment == "0"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500) 
+
 al.long = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term == "long" & etho$Treatment == "5"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500) 
+al.long2 = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term2 == "long" & etho$Treatment == "5"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500) 
+al.long3 = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term3 == "long" & etho$Treatment == "5"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500) 
+
 ah.long = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term == "long" & etho$Treatment == "25"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500) 
+ah.long2 = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term2 == "long" & etho$Treatment == "25"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500) 
+ah.long3 = rpt(log(Mean.Mobility+1) ~ scale.age + (1|FishName) + (1|Clutch), datatype = "Gaussian", data=etho[which(etho$term3 == "long" & etho$Treatment == "25"),], grname = c("FishName","Clutch"), nboot = 500, npermut = 500) 
 
 
 tdata = data.frame("Trait" = c("Exploration","Exploration","Exploration","Exploration","Exploration","Exploration",
