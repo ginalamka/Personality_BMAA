@@ -896,7 +896,7 @@ HPDinterval(repeata, 0.95)
 el.long = MCMCglmm(round(CumDur.Z2) ~ scale.age , random = ~FishName, family = "poisson", data = etho[which(etho$term == "long" & etho$Treatment == "5"),],
                verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
 repeata <- el.long$VCV[,"FishName"]/(el.long$VCV[,"FishName"]+el.long$VCV[,"units"]) 
-mean(repeata) # R = 0.30
+mean(repeata) # R = 0.05
 HPDinterval(repeata, 0.95)
 el.long2 = MCMCglmm(round(CumDur.Z2) ~ scale.age , random = ~FishName, family = "poisson", data = etho[which(etho$term2 == "long" & etho$Treatment == "5"),],
                verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
@@ -1093,38 +1093,77 @@ term.plot = ggplot(tdata, aes(x = Term, y = Repeatability, color = Treatment)) +
 #ec.short, el.short, eh.short, ec.long, el.long, eh.long
 #control
 rpt.ecshort <- ec.short$VCV[,"FishName"]/(ec.short$VCV[,"FishName"]+ec.short$VCV[,"units"])
-rpt.eclong <- ec.long$VCV[,"FishName"]/(ec.long$VCV[,"FishName"]+ec.short$VCV[,"units"])
+rpt.eclong <- ec.long$VCV[,"FishName"]/(ec.long$VCV[,"FishName"]+ec.long$VCV[,"units"])
 p1 <- hist(rpt.ecshort)                     
 p2 <- hist(rpt.eclong)                     
 plot( p1, col=rgb(0,0,1,1/4), xlim=c(0,0.3))  
 plot( p2, col=rgb(1,0,0,1/4), xlim=c(0,0.4), add=T)
-# Posterior predicted values for exploration, control treatment fish are overlapping at short and long terms
+cont = data.frame(cbind(rpt.ecshort,rpt.eclong))
+colnames(cont) = c("short","long")
+cont$diff = ifelse(cont$short < cont$long, 0,1)
+table(cont$diff)
+1-(1514/2900) # p = 0.48
+# Posterior predicted values for exploration, control treatment fish are lower in the short duration 54% of the time
+rpt.ecshort2 <- ec.short2$VCV[,"FishName"]/(ec.short2$VCV[,"FishName"]+ec.short2$VCV[,"units"])
+rpt.eclong2 <- ec.long2$VCV[,"FishName"]/(ec.long2$VCV[,"FishName"]+ec.long2$VCV[,"units"])
+cont = data.frame(cbind(rpt.ecshort2,rpt.eclong2))
+colnames(cont) = c("short","long")
+cont$diff = ifelse(cont$short < cont$long, 0,1)
+table(cont$diff) 
+1 - (882/2900) # p = 0.70
+rpt.ecshort3 <- ec.short3$VCV[,"FishName"]/(ec.short3$VCV[,"FishName"]+ec.short3$VCV[,"units"])
+rpt.eclong3 <- ec.long3$VCV[,"FishName"]/(ec.long3$VCV[,"FishName"]+ec.long3$VCV[,"units"])
+cont = data.frame(cbind(rpt.ecshort3,rpt.eclong3))
+colnames(cont) = c("short","long")
+cont$diff = ifelse(cont$short < cont$long, 0,1)
+table(cont$diff)
+1-(710/2900) # p = 0.76
 
 #low
 rpt.elshort <- el.short$VCV[,"FishName"]/(el.short$VCV[,"FishName"]+el.short$VCV[,"units"])
-rpt.ellong <- el.long$VCV[,"FishName"]/(el.long$VCV[,"FishName"]+el.short$VCV[,"units"])
-p1 <- hist(rpt.elshort)                     
-p2 <- hist(rpt.ellong)                     
-plot( p1, col=rgb(0,0,1,1/4), xlim=c(0,0.3))  
-plot( p2, col=rgb(1,0,0,1/4), xlim=c(0,0.4), add=T)
-low = data.frame(cbind(sort(rpt.elshort),sort(rpt.ellong)))
+rpt.ellong <- el.long$VCV[,"FishName"]/(el.long$VCV[,"FishName"]+el.long$VCV[,"units"])
+low = data.frame(cbind(rpt.elshort,rpt.ellong))
 colnames(low) = c("short","long")
 low$diff = ifelse(low$short < low$long, 0,1)
 table(low$diff)
-1729/2900 # 60% of short rpt values are less than long rpt values, if I sort each vector than almost 100% of short values are less than long values
+1-(1484/2900) # p = 0.49
+rpt.elshort2 <- el.short2$VCV[,"FishName"]/(el.short2$VCV[,"FishName"]+el.short2$VCV[,"units"])
+rpt.ellong2 <- el.long2$VCV[,"FishName"]/(el.long2$VCV[,"FishName"]+el.long2$VCV[,"units"])
+low = data.frame(cbind(rpt.elshort2,rpt.ellong2))
+colnames(low) = c("short","long")
+low$diff = ifelse(low$short < low$long, 0,1)
+table(low$diff)
+1-(1014/2900) # p = 0.65
+rpt.elshort3 <- el.short3$VCV[,"FishName"]/(el.short3$VCV[,"FishName"]+el.short3$VCV[,"units"])
+rpt.ellong3 <- el.long3$VCV[,"FishName"]/(el.long3$VCV[,"FishName"]+el.long3$VCV[,"units"])
+low = data.frame(cbind(rpt.elshort3,rpt.ellong3))
+colnames(low) = c("short","long")
+low$diff = ifelse(low$short < low$long, 0,1)
+table(low$diff)
+1-(1653/2900) # p = 0.43
 
 #high
 rpt.ehshort <- eh.short$VCV[,"FishName"]/(eh.short$VCV[,"FishName"]+eh.short$VCV[,"units"])
-rpt.ehlong <- eh.long$VCV[,"FishName"]/(eh.long$VCV[,"FishName"]+eh.short$VCV[,"units"])
-p1 <- hist(rpt.ehshort)                     
-p2 <- hist(rpt.ehlong)                     
-plot( p1, col=rgb(0,0,1,1/4), xlim=c(0,0.3))  
-plot( p2, col=rgb(1,0,0,1/4), xlim=c(0,0.4), add=T)
+rpt.ehlong <- eh.long$VCV[,"FishName"]/(eh.long$VCV[,"FishName"]+eh.long$VCV[,"units"])
 high = data.frame(cbind(rpt.ehshort,rpt.ehlong))
 colnames(high) = c("short","long")
 high$diff = ifelse(high$short < high$long, 0,1)
-table(high$diff) # 2748 0s, 152 1s
-2748/2900 #95% of short data are less than long data, if I sort short/long vectors than 100% of matched pairs the short is less than the long.
+table(high$diff) 
+1-(2836/2900) # p = 0.02 - short repeatability values significantly lower than long duration values
+rpt.ehshort2 <- eh.short2$VCV[,"FishName"]/(eh.short2$VCV[,"FishName"]+eh.short2$VCV[,"units"])
+rpt.ehlong2 <- eh.long2$VCV[,"FishName"]/(eh.long2$VCV[,"FishName"]+eh.long2$VCV[,"units"])
+high = data.frame(cbind(rpt.ehshort2,rpt.ehlong2))
+colnames(high) = c("short","long")
+high$diff = ifelse(high$short < high$long, 0,1)
+table(high$diff) 
+1-(2471/2900) # p = 0.15
+rpt.ehshort3 <- eh.short3$VCV[,"FishName"]/(eh.short3$VCV[,"FishName"]+eh.short3$VCV[,"units"])
+rpt.ehlong3 <- eh.long3$VCV[,"FishName"]/(eh.long3$VCV[,"FishName"]+eh.long3$VCV[,"units"])
+high = data.frame(cbind(rpt.ehshort3,rpt.ehlong3))
+colnames(high) = c("short","long")
+high$diff = ifelse(high$short < high$long, 0,1)
+table(high$diff) 
+1-(902/2900) # p = 0.69
 
 ### boldness - comparing predicted values from the coxme fit
 # How do rpt values of log latency compare to survival model? R = 0.09, CI = 0.05-0.13
@@ -1140,57 +1179,132 @@ HPDinterval(rpt.bold ) # CI=0.06-0.16
 bc.short = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
                    data = etho[which(etho$term == "short" & etho$Treatment == "0"),],
                verbose=F, prior=prior, nitt=103000, thin=20, burnin=5000)
-rpt.bcshort <- bc.short$VCV[,"FishName"]/(bc.short$VCV[,"FishName"]+bc.short$VCV[,"units"]) 
-mean(rpt.bcshort)
-HPDinterval(rpt.bcshort)
-
+rpt.bcshort <- bc.short$VCV[,"FishName"]/(bc.short$VCV[,"FishName"]+bc.short$VCV[,"units"])
 bc.long = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
                    data = etho[which(etho$term == "long" & etho$Treatment == "0"),],
                verbose=F, prior=prior, nitt=103000, thin=20, burnin=5000)
-rpt.bclong <- bc.long$VCV[,"FishName"]/(bc.long$VCV[,"FishName"]+bc.long$VCV[,"units"]) 
-mean(rpt.bclong)
-HPDinterval(rpt.bclong)
-
-cont = data.frame(cbind(sort(rpt.bcshort),sort(rpt.bclong)))
+rpt.bclong <- bc.long$VCV[,"FishName"]/(bc.long$VCV[,"FishName"]+bc.long$VCV[,"units"])
+cont = data.frame(cbind(rpt.bcshort,rpt.bclong))
 colnames(cont) = c("short","long")
 cont$diff = ifelse(cont$short < cont$long, 0,1)
 table(cont$diff)
-# 100% of short rpt values less than long values
+1-(4815/4900) # p = 0.02
+
+bc.short2 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term2 == "short" & etho$Treatment == "0"),],
+               verbose=F, prior=prior, nitt=103000, thin=20, burnin=5000)
+rpt.bcshort2 <- bc.short2$VCV[,"FishName"]/(bc.short2$VCV[,"FishName"]+bc.short2$VCV[,"units"])
+bc.long2 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term2 == "long" & etho$Treatment == "0"),],
+               verbose=F, prior=prior, nitt=103000, thin=20, burnin=5000)
+rpt.bclong2 <- bc.long2$VCV[,"FishName"]/(bc.long2$VCV[,"FishName"]+bc.long2$VCV[,"units"])
+cont = data.frame(cbind(rpt.bcshort2,rpt.bclong2))
+colnames(cont) = c("short","long")
+cont$diff = ifelse(cont$short < cont$long, 0,1)
+table(cont$diff)
+1-(4431/4900) # p = 0.10
+
+bc.short3 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term3 == "short" & etho$Treatment == "0"),],
+               verbose=F, prior=prior, nitt=103000, thin=20, burnin=5000)
+rpt.bcshort3 <- bc.short3$VCV[,"FishName"]/(bc.short3$VCV[,"FishName"]+bc.short3$VCV[,"units"])
+bc.long3 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term3 == "long" & etho$Treatment == "0"),],
+               verbose=F, prior=prior, nitt=103000, thin=20, burnin=5000)
+rpt.bclong3 <- bc.long3$VCV[,"FishName"]/(bc.long3$VCV[,"FishName"]+bc.long3$VCV[,"units"])
+cont = data.frame(cbind(rpt.bcshort3,rpt.bclong3))
+colnames(cont) = c("short","long")
+cont$diff = ifelse(cont$short < cont$long, 0,1)
+table(cont$diff)
+ 1-(4631/4900) # p = 0.05
+
 
 #low
 bl.short = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
                    data = etho[which(etho$term == "short" & etho$Treatment == "5"),],
                verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
 rpt.blshort <- bl.short$VCV[,"FishName"]/(bl.short$VCV[,"FishName"]+bl.short$VCV[,"units"]) 
-
 bl.long = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
                    data = etho[which(etho$term == "long" & etho$Treatment == "5"),],
                verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
 rpt.bllong <- bl.long$VCV[,"FishName"]/(bl.long$VCV[,"FishName"]+bl.long$VCV[,"units"]) 
+cont = data.frame(cbind(rpt.blshort,rpt.bllong))
+colnames(cont) = c("short","long")
+cont$diff = ifelse(cont$short < cont$long, 0,1)
+table(cont$diff)
+1-(2677/2900) # p = 0.08
 
+bl.short2 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term2 == "short" & etho$Treatment == "5"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+rpt.blshort2 <- bl.short2$VCV[,"FishName"]/(bl.short2$VCV[,"FishName"]+bl.short2$VCV[,"units"]) 
+bl.long2 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term2 == "long" & etho$Treatment == "5"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+rpt.bllong2 <- bl.long2$VCV[,"FishName"]/(bl.long2$VCV[,"FishName"]+bl.long2$VCV[,"units"]) 
+cont = data.frame(cbind(rpt.blshort2,rpt.bllong2))
+colnames(cont) = c("short","long")
+cont$diff = ifelse(cont$short < cont$long, 0,1)
+table(cont$diff)
+1-(2669/2900) # p = 0.08
 
-low = data.frame(cbind(sort(rpt.blshort),sort(rpt.bllong)))
-colnames(low) = c("short","long")
-low$diff = ifelse(low$short < low$long, 0,1)
-table(low$diff)
-# 100% of short rpt values less than long values
+bl.short3 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term3 == "short" & etho$Treatment == "5"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+rpt.blshort3 <- bl.short3$VCV[,"FishName"]/(bl.short3$VCV[,"FishName"]+bl.short3$VCV[,"units"]) 
+bl.long3 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term3 == "long" & etho$Treatment == "5"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+rpt.bllong3 <- bl.long3$VCV[,"FishName"]/(bl.long3$VCV[,"FishName"]+bl.long3$VCV[,"units"]) 
+cont = data.frame(cbind(rpt.blshort3,rpt.bllong3))
+colnames(cont) = c("short","long")
+cont$diff = ifelse(cont$short < cont$long, 0,1)
+table(cont$diff)
+1-(2117/2900) # p = 0.27
+
 
 #high
 bh.short = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
                    data = etho[which(etho$term == "short" & etho$Treatment == "25"),],
                verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
 rpt.bhshort <- bh.short$VCV[,"FishName"]/(bh.short$VCV[,"FishName"]+bh.short$VCV[,"units"]) 
-
 bh.long = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
                    data = etho[which(etho$term == "long" & etho$Treatment == "25"),],
                verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
 rpt.bhlong <- bh.long$VCV[,"FishName"]/(bh.long$VCV[,"FishName"]+bh.long$VCV[,"units"]) 
-
-
-high = data.frame(cbind(sort(rpt.bhshort),sort(rpt.bhlong)))
+high = data.frame(cbind(rpt.bhshort,rpt.bhlong))
 colnames(high) = c("short","long")
 high$diff = ifelse(high$short < high$long, 0,1)
-table(high$diff) # >99% of short values are less than long values. p = 0.001
+table(high$diff) 
+1-(2890/2900) # p = 0.003
+
+bh.short2 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term2 == "short" & etho$Treatment == "25"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+rpt.bhshort2 <- bh.short2$VCV[,"FishName"]/(bh.short2$VCV[,"FishName"]+bh.short2$VCV[,"units"]) 
+bh.long2 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term2 == "long" & etho$Treatment == "25"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+rpt.bhlong2 <- bh.long2$VCV[,"FishName"]/(bh.long2$VCV[,"FishName"]+bh.long2$VCV[,"units"]) 
+high = data.frame(cbind(rpt.bhshort2,rpt.bhlong2))
+colnames(high) = c("short","long")
+high$diff = ifelse(high$short < high$long, 0,1)
+table(high$diff) 
+1-(2895/2900) # p = 0.002
+
+bh.short3 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term3 == "short" & etho$Treatment == "25"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+rpt.bhshort3 <- bh.short3$VCV[,"FishName"]/(bh.short3$VCV[,"FishName"]+bh.short3$VCV[,"units"]) 
+bh.long3 = MCMCglmm(log(LatencyZ2360+1) ~ scale.age, random =~ FishName, family = "gaussian", 
+                   data = etho[which(etho$term3 == "long" & etho$Treatment == "25"),],
+               verbose=F, prior=prior, nitt=63000, thin=20, burnin=5000)
+rpt.bhlong3 <- bh.long3$VCV[,"FishName"]/(bh.long3$VCV[,"FishName"]+bh.long3$VCV[,"units"]) 
+high = data.frame(cbind(rpt.bhshort3,rpt.bhlong3))
+colnames(high) = c("short","long")
+high$diff = ifelse(high$short < high$long, 0,1)
+table(high$diff) 
+1-(2810/2900) # p = 0.03
 
 
 
@@ -1210,15 +1324,39 @@ ac.long = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch
                    data = etho[which(etho$term == "long" & etho$Treatment == "0"),],
                verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
 rpt.aclong <- ac.long$VCV[,"FishName"]/(ac.long$VCV[,"FishName"]+ac.long$VCV[,"units"]) 
-
-p1 <- hist(rpt.acshort)                     
-p2 <- hist(rpt.aclong)                     
-plot( p1, col=rgb(0,0,1,1/4), xlim=c(0,0.6))  
-plot( p2, col=rgb(1,0,0,1/4), xlim=c(0,0.6), add=T) # distributions barely overlapping
 cont = data.frame(cbind(rpt.acshort,rpt.aclong))
 colnames(cont) = c("short","long")
 cont$diff = ifelse(cont$short < cont$long, 0,1)
-table(cont$diff) # almost 100% of short values are lower than long values, with and without sorting the vectors
+table(cont$diff) 
+1-(2897/2900) # p = 0.001
+
+ac.short2 = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
+                   data = etho[which(etho$term2 == "short" & etho$Treatment == "0"),],
+               verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
+rpt.acshort2 <- ac.short2$VCV[,"FishName"]/(ac.short2$VCV[,"FishName"]+ac.short2$VCV[,"units"]) 
+ac.long2 = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
+                   data = etho[which(etho$term2 == "long" & etho$Treatment == "0"),],
+               verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
+rpt.aclong2 <- ac.long2$VCV[,"FishName"]/(ac.long2$VCV[,"FishName"]+ac.long2$VCV[,"units"]) 
+cont = data.frame(cbind(rpt.acshort2,rpt.aclong2))
+colnames(cont) = c("short","long")
+cont$diff = ifelse(cont$short < cont$long, 0,1)
+table(cont$diff) 
+1-(2795/2900) # p = 0.04
+
+ac.short3 = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
+                   data = etho[which(etho$term3 == "short" & etho$Treatment == "0"),],
+               verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
+rpt.acshort3 <- ac.short3$VCV[,"FishName"]/(ac.short3$VCV[,"FishName"]+ac.short3$VCV[,"units"]) 
+ac.long3 = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
+                   data = etho[which(etho$term3 == "long" & etho$Treatment == "0"),],
+               verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
+rpt.aclong3 <- ac.long3$VCV[,"FishName"]/(ac.long3$VCV[,"FishName"]+ac.long3$VCV[,"units"]) 
+cont = data.frame(cbind(rpt.acshort3,rpt.aclong3))
+colnames(cont) = c("short","long")
+cont$diff = ifelse(cont$short < cont$long, 0,1)
+table(cont$diff) 
+1-(2233/2900) # p > 0.05
 
 #low
 al.short = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
@@ -1229,15 +1367,39 @@ al.long = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch
                    data = etho[which(etho$term == "long" & etho$Treatment == "5"),],
                verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
 rpt.allong <- al.long$VCV[,"FishName"]/(al.long$VCV[,"FishName"]+al.long$VCV[,"units"]) 
-
-p1 <- hist(rpt.alshort)                     
-p2 <- hist(rpt.allong)                     
-plot( p1, col=rgb(0,0,1,1/4), xlim=c(0,0.6))  
-plot( p2, col=rgb(1,0,0,1/4), xlim=c(0,0.6), add=T) # distributions moderately overlapping
 low = data.frame(cbind(rpt.alshort,rpt.allong))
 colnames(low) = c("short","long")
 low$diff = ifelse(low$short < low$long, 0,1)
-table(low$diff) # 94% of short values less than long values, 100% if sorted vectors
+table(low$diff) 
+1-(2727/2900) # p = 0.06
+
+al.short2 = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
+                   data = etho[which(etho$term2 == "short" & etho$Treatment == "5"),],
+               verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
+rpt.alshort2 <- al.short2$VCV[,"FishName"]/(al.short2$VCV[,"FishName"]+al.short2$VCV[,"units"]) 
+al.long2 = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
+                   data = etho[which(etho$term2 == "long" & etho$Treatment == "5"),],
+               verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
+rpt.allong2 <- al.long2$VCV[,"FishName"]/(al.long2$VCV[,"FishName"]+al.long2$VCV[,"units"]) 
+low = data.frame(cbind(rpt.alshort2,rpt.allong2))
+colnames(low) = c("short","long")
+low$diff = ifelse(low$short < low$long, 0,1)
+table(low$diff) 
+1-(2794/2900) # p = 0.04
+
+al.short3 = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
+                   data = etho[which(etho$term3 == "short" & etho$Treatment == "5"),],
+               verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
+rpt.alshort3 <- al.short3$VCV[,"FishName"]/(al.short3$VCV[,"FishName"]+al.short3$VCV[,"units"]) 
+al.long3 = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
+                   data = etho[which(etho$term3 == "long" & etho$Treatment == "5"),],
+               verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
+rpt.allong3 <- al.long3$VCV[,"FishName"]/(al.long3$VCV[,"FishName"]+al.long3$VCV[,"units"]) 
+low = data.frame(cbind(rpt.alshort3,rpt.allong3))
+colnames(low) = c("short","long")
+low$diff = ifelse(low$short < low$long, 0,1)
+table(low$diff) 
+1-(2566/2900) # p = 0.12
 
 #high
 ah.short = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
@@ -1248,16 +1410,39 @@ ah.long = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch
                    data = etho[which(etho$term == "long" & etho$Treatment == "25"),],
                verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
 rpt.ahlong <- ah.long$VCV[,"FishName"]/(ah.long$VCV[,"FishName"]+ah.long$VCV[,"units"]) 
-
-p1 <- hist(rpt.ahshort)                     
-p2 <- hist(rpt.ahlong)                     
-plot( p1, col=rgb(0,0,1,1/4), xlim=c(0,0.6))  
-plot( p2, col=rgb(1,0,0,1/4), xlim=c(0,0.6), add=T) # distributions barely overlapping
 high = data.frame(cbind(rpt.ahshort,rpt.ahlong))
 colnames(high) = c("short","long")
 high$diff = ifelse(high$short < high$long, 0,1)
-table(high$diff) # 100% of short values less than long values, regardless if vectors are sorted
+table(high$diff) 
+1-(2896/2900) # p = 0.001
 
+ah.short2 = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
+                   data = etho[which(etho$term2 == "short" & etho$Treatment == "25"),],
+               verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
+rpt.ahshort2 <- ah.short2$VCV[,"FishName"]/(ah.short2$VCV[,"FishName"]+ah.short2$VCV[,"units"]) 
+ah.long2 = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
+                   data = etho[which(etho$term2 == "long" & etho$Treatment == "25"),],
+               verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
+rpt.ahlong2 <- ah.long2$VCV[,"FishName"]/(ah.long2$VCV[,"FishName"]+ah.long2$VCV[,"units"]) 
+high = data.frame(cbind(rpt.ahshort2,rpt.ahlong2))
+colnames(high) = c("short","long")
+high$diff = ifelse(high$short < high$long, 0,1)
+table(high$diff) 
+1-(2885/2900) # p = 0.005
+
+ah.short3 = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
+                   data = etho[which(etho$term3 == "short" & etho$Treatment == "25"),],
+               verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
+rpt.ahshort3 <- ah.short3$VCV[,"FishName"]/(ah.short3$VCV[,"FishName"]+ah.short3$VCV[,"units"]) 
+ah.long3 = MCMCglmm(log(Mean.Mobility+1) ~ scale.age, random =~ FishName + Clutch, family = "gaussian", 
+                   data = etho[which(etho$term3 == "long" & etho$Treatment == "25"),],
+               verbose=F, prior=prior2, nitt=63000, thin=20, burnin=5000)
+rpt.ahlong3 <- ah.long3$VCV[,"FishName"]/(ah.long3$VCV[,"FishName"]+ah.long3$VCV[,"units"]) 
+high = data.frame(cbind(rpt.ahshort3,rpt.ahlong3))
+colnames(high) = c("short","long")
+high$diff = ifelse(high$short < high$long, 0,1)
+table(high$diff) 
+1-(722/2900) # p > 0.05
 
 ```
 
